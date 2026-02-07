@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mug Studio 2.1 - Filtros Live & Undo</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            background-color: #f0f0f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; 
+            user-select: none;
+        }
+
+        /* UI Retrô / Minimalista */
+        .sidebar {
+            background-color: #c0c0c0;
+            border-right: 2px solid #808080;
+            box-shadow: inset -1px -1px 0px #404040, inset 1px 1px 0px #dfdfdf;
+        }
+
+        .tool-btn {
+            background-color: #c0c0c0;
+            border-top: 2px solid #dfdfdf;
+            border-left: 2px solid #dfdfdf;
+            border-right: 2px solid #404040;
+            border-bottom: 2px solid #404040;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+        }
+
+        .tool-btn:active, .tool-btn.active {
+            border-top: 2px solid #404040;
+            border-left: 2px solid #404040;
+            border-right: 2px solid #dfdfdf;
+            border-bottom: 2px solid #dfdfdf;
+            background-color: #e0e0e0;
+        }
+
+        .canvas-container {
+            background-color: #808080;
+            padding: 20px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        canvas#drawingCanvas {
+            background-color: white;
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+        }
+
+        #renderer-container {
+            width: 100%;
+            height: 300px;
+            background: linear-gradient(to bottom, #e0e0e0, #ffffff);
+            border-top: 2px solid #808080;
+            position: relative;
+        }
+
+        .win95-box {
+            background: #c0c0c0;
+            border: 2px solid;
+            border-color: #dfdfdf #404040 #404040 #dfdfdf;
+            padding: 4px;
+        }
+
+        /* Painel Flutuante de Filtros */
+        .floating-panel {
+            position: absolute;
+            top: 60px;
+            left: 100px;
+            width: 250px;
+            background: #c0c0c0;
+            border: 2px solid #dfdfdf;
+            border-right-color: #404040;
+            border-bottom-color: #404040;
+            box-shadow: 4px 4px 10px rgba(0,0,0,0.3);
+            z-index: 50;
+            display: none; 
+        }
+
+        .panel-header {
+            background: #000080;
+            color: white;
+            padding: 2px 4px;
+            font-weight: bold;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: grab;
+        }
+
+        .slider-group {
+            margin-bottom: 8px;
+        }
+        .slider-group label {
+            font-size: 11px;
+            display: block;
+        }
+        .slider-group input {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        #imageToolbar {
+            display: none;
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffffe0;
+            border: 1px solid #000;
+            padding: 5px 10px;
+            gap: 10px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            font-size: 12px;
+            z-index: 40;
+            align-items: center;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- Cabeçalho -->
+    <header class="bg-[#000080] text-white p-2 flex justify-between items-center select-none">
+        <div class="font-bold tracking-wide pl-2 flex items-center gap-2">
+            <i class="fas fa-coffee"></i> Mug Studio v2.1
+        </div>
+        <div class="space-x-2">
+            <button class="win95-box text-black px-2 font-bold hover:bg-red-200" onclick="window.location.reload()">X</button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Menu Lateral -->
+        <aside class="sidebar w-20 flex flex-col items-center py-4 gap-3 select-none z-10">
+            <!-- Cor -->
+            <div class="flex flex-col items-center w-full px-2">
+                <label class="text-xs mb-1 font-bold">Cor</label>
+                <input type="color" id="colorPicker" value="#000000" class="w-10 h-8 cursor-pointer border-2 border-gray-600">
+            </div>
+
+            <!-- Espessura -->
+            <div class="flex flex-col items-center w-full px-2">
+                <label class="text-xs mb-1 font-bold">Pincel</label>
+                <input type="range" id="brushSize" min="1" max="20" value="5" class="w-14">
+            </div>
+
+            <hr class="w-10 border-gray-500 my-2">
+
+            <!-- Botões Ferramentas -->
+            <button id="btnPencil" class="tool-btn w-10 h-10 active" title="Lápis">
+                <i class="fas fa-pencil-alt"></i>
+            </button>
+            
+            <button id="btnEraser" class="tool-btn w-10 h-10" title="Borracha">
+                <i class="fas fa-eraser"></i>
+            </button>
+
+            <!-- Undo (Desfazer) -->
+            <button id="btnUndo" class="tool-btn w-10 h-10 text-purple-800" title="Desfazer (Ctrl+Z)">
+                <i class="fas fa-undo"></i>
+            </button>
+
+            <!-- Upload -->
+            <div class="relative group">
+                <button class="tool-btn w-10 h-10" title="Importar Imagem" onclick="document.getElementById('fileInput').click()">
+                    <i class="fas fa-folder-open text-yellow-700"></i>
+                </button>
+                <input type="file" id="fileInput" accept="image/*" class="hidden">
+            </div>
+
+            <!-- Filtros -->
+            <button id="btnFilters" class="tool-btn w-10 h-10" title="Filtros de Imagem">
+                <i class="fas fa-sliders-h text-blue-800"></i>
+            </button>
+
+            <div class="flex-grow"></div>
+
+            <button id="btnClear" class="tool-btn w-10 h-10 text-red-600 mb-2" title="Limpar Tudo">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </aside>
+
+        <!-- Área Principal -->
+        <main class="flex-1 flex flex-col bg-[#808080] relative">
+            
+            <!-- Painel de Filtros (Flutuante) -->
+            <div id="filterPanel" class="floating-panel p-2">
+                <div class="panel-header mb-2" id="filterPanelHeader">
+                    <span>Filtros (Preview)</span>
+                    <button id="closeFilters" class="text-white hover:text-red-300">x</button>
+                </div>
+                
+                <div class="slider-group">
+                    <label>Blur (Desfoque): <span id="valBlur">0</span>px</label>
+                    <input type="range" id="filterBlur" class="filter-input" min="0" max="10" value="0" step="0.5">
+                </div>
+
+                <div class="slider-group">
+                    <label>Modo de Cor:</label>
+                    <select id="filterMode" class="filter-input w-full text-sm p-1 border border-gray-500">
+                        <option value="normal">Normal</option>
+                        <option value="grayscale">Escala de Cinza</option>
+                        <option value="sepia">Sépia</option>
+                        <option value="invert">Inverter</option>
+                    </select>
+                </div>
+
+                <hr class="border-gray-500 my-2">
+                <div class="text-xs font-bold mb-1">Canais RGB</div>
+
+                <div class="slider-group">
+                    <label class="text-red-600">Vermelho: <span id="valR">100</span>%</label>
+                    <input type="range" id="channelR" class="filter-input" min="0" max="200" value="100">
+                </div>
+                <div class="slider-group">
+                    <label class="text-green-600">Verde: <span id="valG">100</span>%</label>
+                    <input type="range" id="channelG" class="filter-input" min="0" max="200" value="100">
+                </div>
+                <div class="slider-group">
+                    <label class="text-blue-600">Azul: <span id="valB">100</span>%</label>
+                    <input type="range" id="channelB" class="filter-input" min="0" max="200" value="100">
+                </div>
+
+                <div class="flex gap-2 mt-2">
+                    <button id="btnCancelFilter" class="w-1/2 win95-box font-bold text-sm py-1 active:bg-gray-400 text-red-700">
+                        Cancelar
+                    </button>
+                    <button id="btnConfirmFilter" class="w-1/2 win95-box font-bold text-sm py-1 active:bg-gray-400 text-green-700">
+                        Confirmar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Área de Desenho -->
+            <div class="flex-1 canvas-container relative">
+                
+                <div id="imageToolbar" class="flex">
+                    <span class="font-bold"><i class="fas fa-arrows-alt"></i> Mova & Scroll p/ Zoom</span>
+                    <div class="w-[1px] h-4 bg-gray-400"></div>
+                    <button id="btnConfirmImg" class="text-green-600 font-bold hover:bg-green-100 px-2 rounded">
+                        <i class="fas fa-check"></i> Fixar
+                    </button>
+                    <button id="btnDiscardImg" class="text-red-600 font-bold hover:bg-red-100 px-2 rounded">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                </div>
+
+                <div class="flex flex-col items-center">
+                    <span class="text-white text-xs mb-1 font-mono tracking-widest">ÁREA DE SUBLIMAÇÃO</span>
+                    <canvas id="drawingCanvas" width="800" height="360"></canvas>
+                </div>
+            </div>
+
+            <!-- Rodapé -->
+            <div class="bg-[#c0c0c0] p-3 border-t-2 border-gray-400 flex flex-wrap justify-between items-center gap-4 z-20">
+                <div class="flex items-center gap-2">
+                     <label class="text-xs font-bold">Solicitante:</label>
+                     <div class="win95-box bg-white px-2">
+                        <input type="email" id="userEmail" placeholder="seu@email.com" class="outline-none text-sm w-56 bg-transparent">
+                     </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button id="btnReset" class="win95-box px-4 py-1 font-bold hover:bg-red-100 active:bg-gray-400 text-sm border-b-2 border-r-2 border-gray-800">
+                        <i class="fas fa-bomb mr-1"></i> Reset
+                    </button>
+                    <button id="btnApply" class="win95-box px-4 py-1 font-bold hover:bg-blue-100 active:bg-gray-400 text-sm border-b-2 border-r-2 border-gray-800">
+                        <i class="fas fa-cube mr-1"></i> Visualizar 3D
+                    </button>
+                    <button id="btnSend" class="win95-box px-4 py-1 font-bold hover:bg-green-100 active:bg-gray-400 text-sm border-b-2 border-r-2 border-gray-800">
+                        <i class="fas fa-envelope mr-1"></i> Gerar Pedido
+                    </button>
+                </div>
+            </div>
+
+            <div id="renderer-container">
+                <div class="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded pointer-events-none z-10">
+                    Pré-visualização 3D (Arraste para girar)
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- SCRIPT -->
+    <script>
+        // --- CONFIGURAÇÃO CANVAS ---
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // --- SISTEMA DE HISTÓRICO (UNDO) ---
+        const historyStack = [];
+        let historyStep = -1;
+        const MAX_HISTORY = 15;
+
+        function saveToHistory() {
+            historyStep++;
+            // Se voltamos no tempo e desenhamos algo novo, removemos o "futuro"
+            if (historyStep < historyStack.length) {
+                historyStack.length = historyStep;
+            }
+            // Salva estado atual
+            historyStack.push(canvas.toDataURL());
+            
+            // Limita tamanho
+            if (historyStack.length > MAX_HISTORY) {
+                historyStack.shift();
+                historyStep--;
+            }
+        }
+
+        function undo() {
+            if (historyStep > 0) {
+                historyStep--;
+                const img = new Image();
+                img.src = historyStack[historyStep];
+                img.onload = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                }
+            }
+        }
+
+        // Inicializa Canvas e Histórico
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        saveToHistory(); // Estado inicial (passo 0)
+
+        // Botão Undo
+        document.getElementById('btnUndo').addEventListener('click', undo);
+        
+        // Atalho Teclado (Ctrl+Z)
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+        });
+
+        // --- ESTADO GLOBAL UI ---
+        let isDrawing = false;
+        let tool = 'pencil'; 
+        let lastX = 0, lastY = 0;
+        let floatingImg = null;
+        let isDraggingImg = false;
+        let dragStartX = 0, dragStartY = 0;
+
+        const colorPicker = document.getElementById('colorPicker');
+        const brushSize = document.getElementById('brushSize');
+        const imageToolbar = document.getElementById('imageToolbar');
+        const filterPanel = document.getElementById('filterPanel');
+
+        function getMousePos(evt) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            };
+        }
+
+        // --- LOOP DE DESENHO PARA IMAGEM FLUTUANTE ---
+        function renderFloatingOverlay() {
+            if (floatingImg) {
+                // Restaura o estado atual do histórico (fundo)
+                const bgImg = new Image();
+                bgImg.src = historyStack[historyStep];
+                bgImg.onload = () => {
+                    ctx.clearRect(0,0,canvas.width, canvas.height);
+                    ctx.drawImage(bgImg, 0, 0);
+                    
+                    // Desenha imagem flutuante
+                    ctx.save();
+                    ctx.drawImage(floatingImg.img, floatingImg.x, floatingImg.y, floatingImg.width, floatingImg.height);
+                    ctx.strokeStyle = "#00f";
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.strokeRect(floatingImg.x, floatingImg.y, floatingImg.width, floatingImg.height);
+                    ctx.restore();
+                }
+            }
+        }
+
+        // --- EVENTOS DESENHO ---
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        canvas.addEventListener('mouseup', handleEnd);
+        canvas.addEventListener('mouseout', handleEnd);
+        canvas.addEventListener('wheel', handleScroll, { passive: false });
+
+        // Touch
+        canvas.addEventListener('touchstart', (e) => {
+            if(e.target == canvas) e.preventDefault();
+            const t = e.touches[0];
+            handleStart({ clientX: t.clientX, clientY: t.clientY });
+        }, {passive: false});
+        canvas.addEventListener('touchmove', (e) => {
+            if(e.target == canvas) e.preventDefault();
+            const t = e.touches[0];
+            handleMove({ clientX: t.clientX, clientY: t.clientY });
+        }, {passive: false});
+        canvas.addEventListener('touchend', handleEnd);
+
+        function handleStart(e) {
+            const pos = getMousePos(e);
+
+            if (floatingImg) {
+                if (pos.x >= floatingImg.x && pos.x <= floatingImg.x + floatingImg.width &&
+                    pos.y >= floatingImg.y && pos.y <= floatingImg.y + floatingImg.height) {
+                    isDraggingImg = true;
+                    dragStartX = pos.x - floatingImg.x;
+                    dragStartY = pos.y - floatingImg.y;
+                    canvas.style.cursor = 'grabbing';
+                }
+                return;
+            }
+
+            isDrawing = true;
+            [lastX, lastY] = [pos.x, pos.y];
+            
+            ctx.beginPath();
+            ctx.fillStyle = tool === 'eraser' ? '#ffffff' : colorPicker.value;
+            ctx.arc(lastX, lastY, brushSize.value / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function handleMove(e) {
+            const pos = getMousePos(e);
+
+            if (floatingImg && isDraggingImg) {
+                floatingImg.x = pos.x - dragStartX;
+                floatingImg.y = pos.y - dragStartY;
+                renderFloatingOverlay();
+                return;
+            }
+
+            if (!isDrawing || floatingImg) return;
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = brushSize.value;
+            ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : colorPicker.value;
+            ctx.stroke();
+            [lastX, lastY] = [pos.x, pos.y];
+        }
+
+        function handleEnd() {
+            if (isDrawing && !floatingImg) {
+                saveToHistory(); // Salvamos o traço no histórico
+            }
+            isDrawing = false;
+            isDraggingImg = false;
+            canvas.style.cursor = floatingImg ? 'move' : 'crosshair';
+        }
+
+        function handleScroll(e) {
+            if (floatingImg) {
+                e.preventDefault();
+                const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                
+                const oldW = floatingImg.width;
+                const oldH = floatingImg.height;
+                const newW = oldW * scaleFactor;
+                const newH = oldH * scaleFactor;
+                
+                floatingImg.x += (oldW - newW) / 2;
+                floatingImg.y += (oldH - newH) / 2;
+                floatingImg.width = newW;
+                floatingImg.height = newH;
+                
+                renderFloatingOverlay();
+            }
+        }
+
+        // --- FERRAMENTAS ---
+        function setTool(t, btnId) {
+            if(floatingImg) {
+                alert("Confirme ou cancele a imagem importada antes de desenhar.");
+                return;
+            }
+            tool = t;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(btnId).classList.add('active');
+        }
+
+        document.getElementById('btnPencil').addEventListener('click', () => setTool('pencil', 'btnPencil'));
+        document.getElementById('btnEraser').addEventListener('click', () => setTool('eraser', 'btnEraser'));
+        
+        document.getElementById('btnClear').addEventListener('click', () => {
+             if(confirm('Limpar tudo?')) {
+                 ctx.fillStyle = "white";
+                 ctx.fillRect(0, 0, canvas.width, canvas.height);
+                 floatingImg = null;
+                 imageToolbar.style.display = 'none';
+                 saveToHistory();
+             }
+        });
+
+        document.getElementById('btnReset').addEventListener('click', () => {
+            if(confirm("Reiniciar tudo?")) location.reload();
+        });
+
+        // --- IMPORTAÇÃO DE IMAGEM ---
+        const fileInput = document.getElementById('fileInput');
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const aspectRatio = img.width / img.height;
+                        let w = canvas.height * 0.8 * aspectRatio;
+                        let h = canvas.height * 0.8;
+                        
+                        floatingImg = { img: img, x: (canvas.width - w) / 2, y: (canvas.height - h) / 2, width: w, height: h };
+                        imageToolbar.style.display = 'flex';
+                        canvas.style.cursor = 'move';
+                        renderFloatingOverlay();
+                    }
+                    img.src = event.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+            fileInput.value = '';
+        });
+
+        document.getElementById('btnConfirmImg').addEventListener('click', () => {
+            if (floatingImg) {
+                // Redesenha limpo (sem a borda de seleção) e salva
+                const bgImg = new Image();
+                bgImg.src = historyStack[historyStep];
+                bgImg.onload = () => {
+                    ctx.clearRect(0,0,canvas.width, canvas.height);
+                    ctx.drawImage(bgImg, 0, 0);
+                    ctx.drawImage(floatingImg.img, floatingImg.x, floatingImg.y, floatingImg.width, floatingImg.height);
+                    
+                    floatingImg = null;
+                    imageToolbar.style.display = 'none';
+                    canvas.style.cursor = 'crosshair';
+                    saveToHistory(); // Consolida no histórico
+                }
+            }
+        });
+
+        document.getElementById('btnDiscardImg').addEventListener('click', () => {
+            floatingImg = null;
+            imageToolbar.style.display = 'none';
+            // Restaura o ultimo passo do histórico (remove o overlay)
+            const img = new Image();
+            img.src = historyStack[historyStep];
+            img.onload = () => {
+                ctx.clearRect(0,0,canvas.width, canvas.height);
+                ctx.drawImage(img,0,0);
+            }
+            canvas.style.cursor = 'crosshair';
+        });
+
+
+        // --- SISTEMA DE FILTROS COM PREVIEW ---
+        let originalFilterState = null; // Guarda a imagem antes de abrir os filtros
+
+        document.getElementById('btnFilters').addEventListener('click', () => {
+            if(floatingImg) { alert("Finalize a importação da imagem antes de aplicar filtros."); return; }
+            
+            // Abre painel e salva estado base
+            filterPanel.style.display = 'block';
+            originalFilterState = new Image();
+            originalFilterState.src = canvas.toDataURL();
+            
+            // Reseta controles visualmente
+            document.getElementById('filterBlur').value = 0;
+            document.getElementById('filterMode').value = 'normal';
+            document.getElementById('channelR').value = 100;
+            document.getElementById('channelG').value = 100;
+            document.getElementById('channelB').value = 100;
+            updateFilterLabels();
+        });
+
+        // "Fechar" ou "Cancelar" tem o mesmo efeito: descartar mudanças
+        function closeAndCancelFilters() {
+            if (originalFilterState) {
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                ctx.drawImage(originalFilterState, 0, 0);
+            }
+            filterPanel.style.display = 'none';
+            originalFilterState = null;
+        }
+
+        document.getElementById('closeFilters').addEventListener('click', closeAndCancelFilters);
+        document.getElementById('btnCancelFilter').addEventListener('click', closeAndCancelFilters);
+
+        // "Confirmar" aplica e salva no histórico
+        document.getElementById('btnConfirmFilter').addEventListener('click', () => {
+            saveToHistory(); // O estado atual do canvas (já com preview aplicado) vira permanente
+            filterPanel.style.display = 'none';
+            originalFilterState = null;
+        });
+
+        // Lógica de Preview ao Vivo
+        document.querySelectorAll('.filter-input').forEach(input => {
+            input.addEventListener('input', updateFilterPreview);
+        });
+
+        function updateFilterLabels() {
+             document.getElementById('valBlur').innerText = document.getElementById('filterBlur').value;
+             document.getElementById('valR').innerText = document.getElementById('channelR').value;
+             document.getElementById('valG').innerText = document.getElementById('channelG').value;
+             document.getElementById('valB').innerText = document.getElementById('channelB').value;
+        }
+
+        function updateFilterPreview() {
+            if (!originalFilterState) return;
+            updateFilterLabels();
+
+            const blur = document.getElementById('filterBlur').value;
+            const mode = document.getElementById('filterMode').value;
+            const rVal = document.getElementById('channelR').value / 100;
+            const gVal = document.getElementById('channelG').value / 100;
+            const bVal = document.getElementById('channelB').value / 100;
+
+            // 1. Aplica filtros CSS (Blur, Mode)
+            let filterString = `blur(${blur}px)`;
+            if(mode === 'grayscale') filterString += ' grayscale(100%)';
+            if(mode === 'sepia') filterString += ' sepia(100%)';
+            if(mode === 'invert') filterString += ' invert(100%)';
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.filter = filterString;
+            ctx.drawImage(originalFilterState, 0, 0);
+            ctx.restore();
+            ctx.filter = 'none';
+
+            // 2. Aplica Canais RGB (Manipulação de Pixel)
+            if (rVal !== 1 || gVal !== 1 || bVal !== 1) {
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    data[i]     = Math.min(255, data[i] * rVal);     
+                    data[i + 1] = Math.min(255, data[i + 1] * gVal); 
+                    data[i + 2] = Math.min(255, data[i + 2] * bVal); 
+                }
+                ctx.putImageData(imageData, 0, 0);
+            }
+        }
+
+        // Draggable Filter Panel
+        const panelHeader = document.getElementById('filterPanelHeader');
+        let isDraggingPanel = false, pStartX, pStartY, pInitLeft, pInitTop;
+        panelHeader.addEventListener('mousedown', (e) => {
+            isDraggingPanel = true;
+            pStartX = e.clientX; pStartY = e.clientY;
+            pInitLeft = filterPanel.offsetLeft; pInitTop = filterPanel.offsetTop;
+        });
+        window.addEventListener('mousemove', (e) => {
+            if(isDraggingPanel) {
+                filterPanel.style.left = (pInitLeft + e.clientX - pStartX) + 'px';
+                filterPanel.style.top = (pInitTop + e.clientY - pStartY) + 'px';
+            }
+        });
+        window.addEventListener('mouseup', () => isDraggingPanel = false);
+
+
+        // --- THREE.JS E EXPORTAÇÃO (ATUALIZADO) ---
+        let scene, camera, renderer, mugMesh, printMesh;
+        const rendererContainer = document.getElementById('renderer-container');
+
+        function init3D() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xe0e0e0);
+            camera = new THREE.PerspectiveCamera(35, rendererContainer.clientWidth / rendererContainer.clientHeight, 0.1, 1000);
+            camera.position.set(0, 1.5, 4);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(rendererContainer.clientWidth, rendererContainer.clientHeight);
+            rendererContainer.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(2, 5, 5);
+            scene.add(dirLight);
+
+            const mugGroup = new THREE.Group();
+
+            // 1. Corpo da Caneca (Branco Puro)
+            const geometryCylinder = new THREE.CylinderGeometry(0.8, 0.8, 1.8, 64);
+            const materialWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.1 });
+            mugMesh = new THREE.Mesh(geometryCylinder, materialWhite);
+            mugGroup.add(mugMesh);
+
+            // 2. Malha de Impressão (Print Area) - Levemente maior que a caneca
+            // Cobre aprox 85% da circunferência (gap na alça) e tem margens em cima/baixo
+            const thetaLength = 2 * Math.PI * 0.85; // 85% de volta
+            const thetaStart = Math.PI - (thetaLength / 2); // Centralizar oposto à alça
+            
+            const geometryPrint = new THREE.CylinderGeometry(0.805, 0.805, 1.6, 64, 1, true, thetaStart, thetaLength);
+            
+            // Textura Inicial Transparente
+            const initialCanvas = document.createElement('canvas');
+            initialCanvas.width = 1; initialCanvas.height = 1;
+            const ictx = initialCanvas.getContext('2d');
+            ictx.fillStyle = 'white'; ictx.fillRect(0,0,1,1);
+            const texture = new THREE.CanvasTexture(initialCanvas);
+
+            const materialPrint = new THREE.MeshStandardMaterial({ 
+                map: texture, 
+                transparent: true,
+                roughness: 0.3, 
+                metalness: 0.1,
+                side: THREE.DoubleSide
+            });
+
+            printMesh = new THREE.Mesh(geometryPrint, materialPrint);
+            // CORREÇÃO: Alinhar o gap (abertura) com a alça
+            // O geometry padrão tem o gap em 0 (frente/Z+). A alça está em X+.
+            // Anteriormente estava -Math.PI / 2. Ajustando 180 graus (Math.PI) para inverter o lado.
+            printMesh.rotation.y = Math.PI / 2;
+
+            mugGroup.add(printMesh);
+
+            // 3. Alça
+            const geometryHandle = new THREE.TorusGeometry(0.5, 0.12, 16, 100, Math.PI);
+            const handle = new THREE.Mesh(geometryHandle, materialWhite);
+            handle.rotation.z = -Math.PI / 2;
+            handle.position.set(0.8, 0, 0);
+            mugGroup.add(handle);
+
+            scene.add(mugGroup);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                if(!window.isDragging3D) mugGroup.rotation.y += 0.002;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.isDragging3D = false;
+            let lastX3D;
+            rendererContainer.addEventListener('mousedown', (e) => { window.isDragging3D = true; lastX3D = e.offsetX; });
+            window.addEventListener('mouseup', () => window.isDragging3D = false);
+            rendererContainer.addEventListener('mousemove', (e) => {
+                if(window.isDragging3D) {
+                    const delta = e.offsetX - lastX3D;
+                    mugGroup.rotation.y += delta * 0.01;
+                    lastX3D = e.offsetX;
+                }
+            });
+        }
+        init3D();
+
+        document.getElementById('btnApply').addEventListener('click', () => {
+            if(floatingImg) { alert("Fixe ou cancele a imagem primeiro."); return; }
+            const newTexture = new THREE.CanvasTexture(canvas);
+            
+            printMesh.material.map = newTexture;
+            printMesh.material.map.needsUpdate = true;
+            printMesh.material.needsUpdate = true;
+        });
+
+        document.getElementById('btnSend').addEventListener('click', () => {
+             if(floatingImg) { alert("Fixe a imagem primeiro!"); return; }
+             const userEmail = document.getElementById('userEmail').value;
+             if(!userEmail.includes('@')) { alert("E-mail inválido"); return; }
+
+             const { jsPDF } = window.jspdf;
+             const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [210, 99] });
+             const imgData = canvas.toDataURL("image/jpeg", 1.0);
+             pdf.addImage(imgData, 'JPEG', 0, 0, 210, 99);
+             pdf.text(`Solicitante: ${userEmail}`, 5, 5);
+             
+             const filename = `Caneca_${Date.now()}.pdf`;
+             pdf.save(filename);
+             
+             const body = encodeURIComponent(`Segue anexo PDF da caneca.\nSolicitante: ${userEmail}`);
+             location.href = `mailto:erissatto@gmail.com?subject=Novo Pedido Caneca&body=${body}`;
+             alert("PDF Baixado! Anexe-o ao e-mail que foi aberto.");
+        });
+
+    </script>
+</body>
+</html>
