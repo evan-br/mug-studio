@@ -3,20 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mug Studio 2.1 - Filtros Live & Undo</title>
+    <title>Mug Studio 2.1 - Organized</title>
     
-    <!-- Tailwind CSS -->
+    <!-- ==========================================
+         DEPENDÊNCIAS EXTERNAS
+    =========================================== -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    
-    <!-- jsPDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- ==========================================
+         ESTILOS (CSS)
+    =========================================== -->
     <style>
         body {
             background-color: #f0f0f0;
@@ -25,7 +24,14 @@
             user-select: none;
         }
 
-        /* UI Retrô / Minimalista */
+        /* --- UI Retrô (Win95 Style) --- */
+        .win95-box {
+            background: #c0c0c0;
+            border: 2px solid;
+            border-color: #dfdfdf #404040 #404040 #dfdfdf;
+            padding: 4px;
+        }
+        
         .sidebar {
             background-color: #c0c0c0;
             border-right: 2px solid #808080;
@@ -34,278 +40,166 @@
 
         .tool-btn {
             background-color: #c0c0c0;
-            border-top: 2px solid #dfdfdf;
-            border-left: 2px solid #dfdfdf;
-            border-right: 2px solid #404040;
-            border-bottom: 2px solid #404040;
+            border: 2px solid;
+            border-color: #dfdfdf #404040 #404040 #dfdfdf;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
             transition: all 0.1s;
         }
-
         .tool-btn:active, .tool-btn.active {
-            border-top: 2px solid #404040;
-            border-left: 2px solid #404040;
-            border-right: 2px solid #dfdfdf;
-            border-bottom: 2px solid #dfdfdf;
+            border-color: #404040 #dfdfdf #dfdfdf #404040;
             background-color: #e0e0e0;
         }
 
+        /* --- Canvas & 3D --- */
         .canvas-container {
             background-color: #808080;
             padding: 20px;
             overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            display: flex; justify-content: center; align-items: center;
             position: relative;
         }
-
         canvas#drawingCanvas {
             background-color: white;
             box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
         }
-
         #renderer-container {
-            width: 100%;
-            height: 300px;
+            width: 100%; height: 300px;
             background: linear-gradient(to bottom, #e0e0e0, #ffffff);
             border-top: 2px solid #808080;
             position: relative;
         }
 
-        .win95-box {
-            background: #c0c0c0;
-            border: 2px solid;
-            border-color: #dfdfdf #404040 #404040 #dfdfdf;
-            padding: 4px;
-        }
-
-        /* Painel Flutuante de Filtros */
+        /* --- Componentes Flutuantes --- */
         .floating-panel {
-            position: absolute;
-            top: 60px;
-            left: 100px;
-            width: 250px;
+            position: absolute; top: 60px; left: 100px; width: 250px;
             background: #c0c0c0;
-            border: 2px solid #dfdfdf;
-            border-right-color: #404040;
-            border-bottom-color: #404040;
+            border: 2px solid #dfdfdf; border-right-color: #404040; border-bottom-color: #404040;
             box-shadow: 4px 4px 10px rgba(0,0,0,0.3);
-            z-index: 50;
-            display: none; 
+            z-index: 50; display: none; 
         }
-
         .panel-header {
-            background: #000080;
-            color: white;
-            padding: 2px 4px;
-            font-weight: bold;
-            font-size: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            background: #000080; color: white; padding: 2px 4px;
+            font-weight: bold; font-size: 12px;
+            display: flex; justify-content: space-between; align-items: center;
             cursor: grab;
         }
-
-        .slider-group {
-            margin-bottom: 8px;
-        }
-        .slider-group label {
-            font-size: 11px;
-            display: block;
-        }
-        .slider-group input {
-            width: 100%;
-            cursor: pointer;
-        }
-
         #imageToolbar {
-            display: none;
-            position: absolute;
-            top: 10px;
-            left: 50%;
+            display: none; position: absolute; top: 10px; left: 50%;
             transform: translateX(-50%);
-            background: #ffffe0;
-            border: 1px solid #000;
-            padding: 5px 10px;
-            gap: 10px;
+            background: #ffffe0; border: 1px solid #000;
+            padding: 5px 10px; gap: 10px;
             box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
-            font-size: 12px;
-            z-index: 40;
-            align-items: center;
+            font-size: 12px; z-index: 40; align-items: center;
         }
 
-        /* Loading Spinner */
+        /* --- Loading Spinner --- */
         #loadingOverlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 100;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            flex-direction: column;
-            text-align: center;
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 100;
+            justify-content: center; align-items: center; color: white;
+            flex-direction: column; text-align: center;
         }
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin-bottom: 10px;
+            border: 4px solid #f3f3f3; border-top: 4px solid #3498db;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite; margin-bottom: 10px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
     </style>
 </head>
 <body class="h-screen flex flex-col">
 
-    <!-- Overlay de Carregamento -->
+    <!-- OVERLAY LOADING -->
     <div id="loadingOverlay">
         <div class="spinner"></div>
-        <span id="loadingText">Processando...</span>
+        <span id="loadingText" class="font-bold text-lg">Processando...</span>
+        <span class="text-sm text-gray-300 mt-2">Não feche a janela.</span>
     </div>
 
-    <!-- Cabeçalho -->
+    <!-- HEADER -->
     <header class="bg-[#000080] text-white p-2 flex justify-between items-center select-none">
         <div class="font-bold tracking-wide pl-2 flex items-center gap-2">
-            <i class="fas fa-coffee"></i> Mug Studio v2.1
+            <i class="fas fa-coffee"></i> Mug Studio v2.2
         </div>
-        <div class="space-x-2">
-            <button class="win95-box text-black px-2 font-bold hover:bg-red-200" onclick="window.location.reload()">X</button>
-        </div>
+        <button class="win95-box text-black px-2 font-bold hover:bg-red-200" onclick="window.location.reload()">X</button>
     </header>
 
     <div class="flex flex-1 overflow-hidden">
         
-        <!-- Menu Lateral -->
+        <!-- SIDEBAR (FERRAMENTAS) -->
         <aside class="sidebar w-20 flex flex-col items-center py-4 gap-3 select-none z-10">
-            <!-- Cor -->
             <div class="flex flex-col items-center w-full px-2">
                 <label class="text-xs mb-1 font-bold">Cor</label>
                 <input type="color" id="colorPicker" value="#000000" class="w-10 h-8 cursor-pointer border-2 border-gray-600">
             </div>
-
-            <!-- Espessura -->
             <div class="flex flex-col items-center w-full px-2">
                 <label class="text-xs mb-1 font-bold">Pincel</label>
                 <input type="range" id="brushSize" min="1" max="20" value="5" class="w-14">
             </div>
-
             <hr class="w-10 border-gray-500 my-2">
-
-            <!-- Botões Ferramentas -->
-            <button id="btnPencil" class="tool-btn w-10 h-10 active" title="Lápis">
-                <i class="fas fa-pencil-alt"></i>
-            </button>
             
-            <button id="btnEraser" class="tool-btn w-10 h-10" title="Borracha">
-                <i class="fas fa-eraser"></i>
-            </button>
-
-            <!-- Undo (Desfazer) -->
-            <button id="btnUndo" class="tool-btn w-10 h-10 text-purple-800" title="Desfazer (Ctrl+Z)">
-                <i class="fas fa-undo"></i>
-            </button>
-
-            <!-- Upload -->
+            <button id="btnPencil" class="tool-btn w-10 h-10 active" title="Lápis"><i class="fas fa-pencil-alt"></i></button>
+            <button id="btnEraser" class="tool-btn w-10 h-10" title="Borracha"><i class="fas fa-eraser"></i></button>
+            <button id="btnUndo" class="tool-btn w-10 h-10 text-purple-800" title="Desfazer (Ctrl+Z)"><i class="fas fa-undo"></i></button>
+            
             <div class="relative group">
                 <button class="tool-btn w-10 h-10" title="Importar Imagem" onclick="document.getElementById('fileInput').click()">
                     <i class="fas fa-folder-open text-yellow-700"></i>
                 </button>
                 <input type="file" id="fileInput" accept="image/*" class="hidden">
             </div>
-
-            <!-- Filtros -->
-            <button id="btnFilters" class="tool-btn w-10 h-10" title="Filtros de Imagem">
-                <i class="fas fa-sliders-h text-blue-800"></i>
-            </button>
-
+            
+            <button id="btnFilters" class="tool-btn w-10 h-10" title="Filtros"><i class="fas fa-sliders-h text-blue-800"></i></button>
+            
             <div class="flex-grow"></div>
-
-            <button id="btnClear" class="tool-btn w-10 h-10 text-red-600 mb-2" title="Limpar Tudo">
-                <i class="fas fa-trash-alt"></i>
-            </button>
+            <button id="btnClear" class="tool-btn w-10 h-10 text-red-600 mb-2" title="Limpar"><i class="fas fa-trash-alt"></i></button>
         </aside>
 
-        <!-- Área Principal -->
+        <!-- MAIN CONTENT -->
         <main class="flex-1 flex flex-col bg-[#808080] relative">
             
-            <!-- Painel de Filtros (Flutuante) -->
+            <!-- Janela de Filtros -->
             <div id="filterPanel" class="floating-panel p-2">
                 <div class="panel-header mb-2" id="filterPanelHeader">
-                    <span>Filtros (Preview)</span>
-                    <button id="closeFilters" class="text-white hover:text-red-300">x</button>
+                    <span>Filtros</span> <button id="closeFilters" class="hover:text-red-300">x</button>
                 </div>
-                
-                <div class="slider-group">
-                    <label>Blur (Desfoque): <span id="valBlur">0</span>px</label>
-                    <input type="range" id="filterBlur" class="filter-input" min="0" max="10" value="0" step="0.5">
+                <div class="space-y-2">
+                    <div class="slider-group"><label>Blur</label><input type="range" id="filterBlur" class="filter-input" min="0" max="10" value="0" step="0.5"></div>
+                    <div class="slider-group">
+                        <label>Modo</label>
+                        <select id="filterMode" class="filter-input w-full text-xs p-1 border">
+                            <option value="normal">Normal</option>
+                            <option value="grayscale">P&B</option>
+                            <option value="sepia">Sépia</option>
+                            <option value="invert">Inverter</option>
+                        </select>
+                    </div>
+                    <hr class="border-gray-500">
+                    <div class="slider-group"><label class="text-red-600">Vermelho</label><input type="range" id="channelR" class="filter-input" min="0" max="200" value="100"></div>
+                    <div class="slider-group"><label class="text-green-600">Verde</label><input type="range" id="channelG" class="filter-input" min="0" max="200" value="100"></div>
+                    <div class="slider-group"><label class="text-blue-600">Azul</label><input type="range" id="channelB" class="filter-input" min="0" max="200" value="100"></div>
                 </div>
-
-                <div class="slider-group">
-                    <label>Modo de Cor:</label>
-                    <select id="filterMode" class="filter-input w-full text-sm p-1 border border-gray-500">
-                        <option value="normal">Normal</option>
-                        <option value="grayscale">Escala de Cinza</option>
-                        <option value="sepia">Sépia</option>
-                        <option value="invert">Inverter</option>
-                    </select>
-                </div>
-
-                <hr class="border-gray-500 my-2">
-                <div class="text-xs font-bold mb-1">Canais RGB</div>
-
-                <div class="slider-group">
-                    <label class="text-red-600">Vermelho: <span id="valR">100</span>%</label>
-                    <input type="range" id="channelR" class="filter-input" min="0" max="200" value="100">
-                </div>
-                <div class="slider-group">
-                    <label class="text-green-600">Verde: <span id="valG">100</span>%</label>
-                    <input type="range" id="channelG" class="filter-input" min="0" max="200" value="100">
-                </div>
-                <div class="slider-group">
-                    <label class="text-blue-600">Azul: <span id="valB">100</span>%</label>
-                    <input type="range" id="channelB" class="filter-input" min="0" max="200" value="100">
-                </div>
-
-                <div class="flex gap-2 mt-2">
-                    <button id="btnCancelFilter" class="w-1/2 win95-box font-bold text-sm py-1 active:bg-gray-400 text-red-700">
-                        Cancelar
-                    </button>
-                    <button id="btnConfirmFilter" class="w-1/2 win95-box font-bold text-sm py-1 active:bg-gray-400 text-green-700">
-                        Confirmar
-                    </button>
+                <div class="flex gap-2 mt-3">
+                    <button id="btnCancelFilter" class="w-1/2 win95-box text-xs font-bold text-red-700">Cancelar</button>
+                    <button id="btnConfirmFilter" class="w-1/2 win95-box text-xs font-bold text-green-700">OK</button>
                 </div>
             </div>
 
-            <!-- Área de Desenho -->
+            <!-- Área Canvas -->
             <div class="flex-1 canvas-container relative">
-                
                 <div id="imageToolbar" class="flex">
-                    <span class="font-bold"><i class="fas fa-arrows-alt"></i> Mova & Scroll p/ Zoom</span>
-                    <div class="w-[1px] h-4 bg-gray-400"></div>
-                    <button id="btnConfirmImg" class="text-green-600 font-bold hover:bg-green-100 px-2 rounded">
-                        <i class="fas fa-check"></i> Fixar
-                    </button>
-                    <button id="btnDiscardImg" class="text-red-600 font-bold hover:bg-red-100 px-2 rounded">
-                        <i class="fas fa-times"></i> Cancelar
-                    </button>
+                    <span class="font-bold mr-2"><i class="fas fa-arrows-alt"></i> Ajuste a Imagem</span>
+                    <button id="btnConfirmImg" class="text-green-600 font-bold px-2"><i class="fas fa-check"></i></button>
+                    <button id="btnDiscardImg" class="text-red-600 font-bold px-2"><i class="fas fa-times"></i></button>
                 </div>
-
                 <div class="flex flex-col items-center">
                     <span class="text-white text-xs mb-1 font-mono tracking-widest">ÁREA DE SUBLIMAÇÃO</span>
                     <canvas id="drawingCanvas" width="800" height="360"></canvas>
                 </div>
             </div>
 
-            <!-- Rodapé -->
+            <!-- Rodapé Controles -->
             <div class="bg-[#c0c0c0] p-3 border-t-2 border-gray-400 flex flex-wrap justify-between items-center gap-4 z-20">
                 <div class="flex items-center gap-2">
                      <label class="text-xs font-bold">Solicitante:</label>
@@ -313,565 +207,426 @@
                         <input type="email" id="userEmail" placeholder="seu@email.com" class="outline-none text-sm w-56 bg-transparent">
                      </div>
                 </div>
-
                 <div class="flex gap-2">
-                    <button id="btnReset" class="win95-box px-4 py-1 font-bold hover:bg-red-100 active:bg-gray-400 text-sm border-b-2 border-r-2 border-gray-800">
-                        <i class="fas fa-bomb mr-1"></i> Reset
-                    </button>
-                    <button id="btnApply" class="win95-box px-4 py-1 font-bold hover:bg-blue-100 active:bg-gray-400 text-sm border-b-2 border-r-2 border-gray-800">
-                        <i class="fas fa-cube mr-1"></i> Visualizar 3D
-                    </button>
-                    <button id="btnSend" class="win95-box px-4 py-1 font-bold hover:bg-green-100 active:bg-gray-400 text-sm border-b-2 border-r-2 border-gray-800">
-                        <i class="fas fa-cloud-upload-alt mr-1"></i> Processar Pedido
-                    </button>
+                    <button id="btnReset" class="win95-box px-4 py-1 font-bold hover:bg-red-100 text-sm"><i class="fas fa-bomb mr-1"></i> Reset</button>
+                    <button id="btnApply" class="win95-box px-4 py-1 font-bold hover:bg-blue-100 text-sm"><i class="fas fa-cube mr-1"></i> 3D</button>
+                    <button id="btnSend" class="win95-box px-4 py-1 font-bold hover:bg-green-100 text-sm"><i class="fas fa-paper-plane mr-1"></i> Enviar</button>
                 </div>
             </div>
 
+            <!-- Visualização 3D -->
             <div id="renderer-container">
-                <div class="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded pointer-events-none z-10">
-                    Pré-visualização 3D (Arraste para girar)
-                </div>
+                <div class="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded pointer-events-none z-10">Preview 3D</div>
             </div>
         </main>
     </div>
 
-    <!-- SCRIPT -->
+    <!-- ==========================================
+         LÓGICA JAVASCRIPT
+    =========================================== -->
     <script>
-        // --- CONFIGURAÇÃO GOOGLE ---
-        // IMPORTANTE: Se você atualizar o script no Google, DEVE usar "Implantar" > "Gerenciar Implantações" > "Editar" > "Nova Versão"
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbysQfI9ECyMASiUvqoyHVY8XNKB1eUQj04gK1y3tLjzVaRRXl4xt2dVclmV-hhKbDoL/exec"; 
-
-        // --- CONFIGURAÇÃO CANVAS ---
+        // === CONFIGURAÇÃO GLOBAL ===
+        // Substitua pela URL da sua implementação do Google Apps Script
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbysQfI9ECyMASiUvqoyHVY8XNKB1eUQj04gK1y3tLjzVaRRXl4xt2dVclmV-hhKbDoL/exec";
+        
+        // Elementos DOM Principais
         const canvas = document.getElementById('drawingCanvas');
         const ctx = canvas.getContext('2d');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingText = document.getElementById('loadingText');
-        
-        // --- SISTEMA DE HISTÓRICO (UNDO) ---
-        const historyStack = [];
-        let historyStep = -1;
-        const MAX_HISTORY = 15;
 
+        // Estado da Aplicação
+        const state = {
+            isDrawing: false,
+            tool: 'pencil',
+            history: [],
+            historyStep: -1,
+            floatingImg: null,
+            drag: { active: false, startX: 0, startY: 0 }
+        };
+
+        // Inicialização
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        saveToHistory();
+
+        // === MÓDULO 1: HISTÓRICO (UNDO) ===
         function saveToHistory() {
-            historyStep++;
-            if (historyStep < historyStack.length) {
-                historyStack.length = historyStep;
+            state.historyStep++;
+            if (state.historyStep < state.history.length) {
+                state.history.length = state.historyStep;
             }
-            historyStack.push(canvas.toDataURL());
-            
-            if (historyStack.length > MAX_HISTORY) {
-                historyStack.shift();
-                historyStep--;
+            state.history.push(canvas.toDataURL());
+            if (state.history.length > 15) {
+                state.history.shift();
+                state.historyStep--;
             }
         }
 
         function undo() {
-            if (historyStep > 0) {
-                historyStep--;
+            if (state.historyStep > 0) {
+                state.historyStep--;
                 const img = new Image();
-                img.src = historyStack[historyStep];
+                img.src = state.history[state.historyStep];
                 img.onload = () => {
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     ctx.drawImage(img, 0, 0);
                 }
             }
         }
-
-        ctx.fillStyle = "white";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        saveToHistory(); 
-
         document.getElementById('btnUndo').addEventListener('click', undo);
         document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-                e.preventDefault();
-                undo();
-            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
         });
 
-        // --- ESTADO GLOBAL UI ---
-        let isDrawing = false;
-        let tool = 'pencil'; 
-        let lastX = 0, lastY = 0;
-        let floatingImg = null;
-        let isDraggingImg = false;
-        let dragStartX = 0, dragStartY = 0;
-
-        const colorPicker = document.getElementById('colorPicker');
-        const brushSize = document.getElementById('brushSize');
-        const imageToolbar = document.getElementById('imageToolbar');
-        const filterPanel = document.getElementById('filterPanel');
-
+        // === MÓDULO 2: FERRAMENTAS DE DESENHO ===
         function getMousePos(evt) {
             const rect = canvas.getBoundingClientRect();
-            return {
-                x: evt.clientX - rect.left,
-                y: evt.clientY - rect.top
-            };
+            // Suporte unificado para mouse e touch
+            const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+            const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
         }
-
-        // --- LOOP DE DESENHO PARA IMAGEM FLUTUANTE ---
-        function renderFloatingOverlay() {
-            if (floatingImg) {
-                const bgImg = new Image();
-                bgImg.src = historyStack[historyStep];
-                bgImg.onload = () => {
-                    ctx.clearRect(0,0,canvas.width, canvas.height);
-                    ctx.drawImage(bgImg, 0, 0);
-                    
-                    ctx.save();
-                    ctx.drawImage(floatingImg.img, floatingImg.x, floatingImg.y, floatingImg.width, floatingImg.height);
-                    ctx.strokeStyle = "#00f";
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([5, 5]);
-                    ctx.strokeRect(floatingImg.x, floatingImg.y, floatingImg.width, floatingImg.height);
-                    ctx.restore();
-                }
-            }
-        }
-
-        // --- EVENTOS DESENHO ---
-        canvas.addEventListener('mousedown', handleStart);
-        canvas.addEventListener('mousemove', handleMove);
-        canvas.addEventListener('mouseup', handleEnd);
-        canvas.addEventListener('mouseout', handleEnd);
-        canvas.addEventListener('wheel', handleScroll, { passive: false });
-
-        canvas.addEventListener('touchstart', (e) => {
-            if(e.target == canvas) e.preventDefault();
-            const t = e.touches[0];
-            handleStart({ clientX: t.clientX, clientY: t.clientY });
-        }, {passive: false});
-        canvas.addEventListener('touchmove', (e) => {
-            if(e.target == canvas) e.preventDefault();
-            const t = e.touches[0];
-            handleMove({ clientX: t.clientX, clientY: t.clientY });
-        }, {passive: false});
-        canvas.addEventListener('touchend', handleEnd);
 
         function handleStart(e) {
+            if(e.type === 'touchstart') e.preventDefault(); // Previne scroll no mobile
             const pos = getMousePos(e);
 
-            if (floatingImg) {
-                if (pos.x >= floatingImg.x && pos.x <= floatingImg.x + floatingImg.width &&
-                    pos.y >= floatingImg.y && pos.y <= floatingImg.y + floatingImg.height) {
-                    isDraggingImg = true;
-                    dragStartX = pos.x - floatingImg.x;
-                    dragStartY = pos.y - floatingImg.y;
+            // Se tem imagem flutuante, verifica se clicou nela para arrastar
+            if (state.floatingImg) {
+                const img = state.floatingImg;
+                if (pos.x >= img.x && pos.x <= img.x + img.width &&
+                    pos.y >= img.y && pos.y <= img.y + img.height) {
+                    state.drag.active = true;
+                    state.drag.startX = pos.x - img.x;
+                    state.drag.startY = pos.y - img.y;
                     canvas.style.cursor = 'grabbing';
                 }
                 return;
             }
 
-            isDrawing = true;
-            [lastX, lastY] = [pos.x, pos.y];
+            // Desenho normal
+            state.isDrawing = true;
+            state.lastX = pos.x; state.lastY = pos.y;
             
             ctx.beginPath();
-            ctx.fillStyle = tool === 'eraser' ? '#ffffff' : colorPicker.value;
-            ctx.arc(lastX, lastY, brushSize.value / 2, 0, Math.PI * 2);
+            ctx.fillStyle = state.tool === 'eraser' ? '#ffffff' : document.getElementById('colorPicker').value;
+            ctx.arc(state.lastX, state.lastY, document.getElementById('brushSize').value / 2, 0, Math.PI * 2);
             ctx.fill();
         }
 
         function handleMove(e) {
+            if(e.type === 'touchmove') e.preventDefault();
             const pos = getMousePos(e);
 
-            if (floatingImg && isDraggingImg) {
-                floatingImg.x = pos.x - dragStartX;
-                floatingImg.y = pos.y - dragStartY;
+            // Arrastar Imagem
+            if (state.floatingImg && state.drag.active) {
+                state.floatingImg.x = pos.x - state.drag.startX;
+                state.floatingImg.y = pos.y - state.drag.startY;
                 renderFloatingOverlay();
                 return;
             }
 
-            if (!isDrawing || floatingImg) return;
+            // Riscar
+            if (!state.isDrawing || state.floatingImg) return;
 
             ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
+            ctx.moveTo(state.lastX, state.lastY);
             ctx.lineTo(pos.x, pos.y);
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.lineWidth = brushSize.value;
-            ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : colorPicker.value;
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.lineWidth = document.getElementById('brushSize').value;
+            ctx.strokeStyle = state.tool === 'eraser' ? '#ffffff' : document.getElementById('colorPicker').value;
             ctx.stroke();
-            [lastX, lastY] = [pos.x, pos.y];
+            state.lastX = pos.x; state.lastY = pos.y;
         }
 
         function handleEnd() {
-            if (isDrawing && !floatingImg) {
-                saveToHistory(); 
-            }
-            isDrawing = false;
-            isDraggingImg = false;
-            canvas.style.cursor = floatingImg ? 'move' : 'crosshair';
+            if (state.isDrawing && !state.floatingImg) saveToHistory();
+            state.isDrawing = false;
+            state.drag.active = false;
+            canvas.style.cursor = state.floatingImg ? 'move' : 'crosshair';
         }
 
-        function handleScroll(e) {
-            if (floatingImg) {
+        // Listeners do Canvas
+        ['mousedown', 'touchstart'].forEach(ev => canvas.addEventListener(ev, handleStart));
+        ['mousemove', 'touchmove'].forEach(ev => canvas.addEventListener(ev, handleMove));
+        ['mouseup', 'mouseout', 'touchend'].forEach(ev => canvas.addEventListener(ev, handleEnd));
+        
+        // Zoom da Imagem (Scroll)
+        canvas.addEventListener('wheel', (e) => {
+            if (state.floatingImg) {
                 e.preventDefault();
-                const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-                
-                const oldW = floatingImg.width;
-                const oldH = floatingImg.height;
-                const newW = oldW * scaleFactor;
-                const newH = oldH * scaleFactor;
-                
-                floatingImg.x += (oldW - newW) / 2;
-                floatingImg.y += (oldH - newH) / 2;
-                floatingImg.width = newW;
-                floatingImg.height = newH;
-                
+                const scale = e.deltaY > 0 ? 0.9 : 1.1;
+                const img = state.floatingImg;
+                const newW = img.width * scale;
+                const newH = img.height * scale;
+                img.x += (img.width - newW) / 2;
+                img.y += (img.height - newH) / 2;
+                img.width = newW; img.height = newH;
                 renderFloatingOverlay();
             }
-        }
+        }, { passive: false });
 
-        // --- FERRAMENTAS ---
-        function setTool(t, btnId) {
-            if(floatingImg) {
-                alert("Confirme ou cancele a imagem importada antes de desenhar.");
-                return;
+        // === MÓDULO 3: IMAGEM FLUTUANTE ===
+        function renderFloatingOverlay() {
+            if (!state.floatingImg) return;
+            // Redesenha o background (histórico) e depois a imagem por cima
+            const bgImg = new Image();
+            bgImg.src = state.history[state.historyStep];
+            bgImg.onload = () => {
+                ctx.clearRect(0,0,canvas.width, canvas.height);
+                ctx.drawImage(bgImg, 0, 0);
+                
+                const f = state.floatingImg;
+                ctx.save();
+                ctx.drawImage(f.img, f.x, f.y, f.width, f.height);
+                ctx.strokeStyle = "#00f"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+                ctx.strokeRect(f.x, f.y, f.width, f.height);
+                ctx.restore();
             }
-            tool = t;
-            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(btnId).classList.add('active');
         }
 
-        document.getElementById('btnPencil').addEventListener('click', () => setTool('pencil', 'btnPencil'));
-        document.getElementById('btnEraser').addEventListener('click', () => setTool('eraser', 'btnEraser'));
-        
-        document.getElementById('btnClear').addEventListener('click', () => {
-             if(confirm('Limpar tudo?')) {
-                 ctx.fillStyle = "white";
-                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                 floatingImg = null;
-                 imageToolbar.style.display = 'none';
-                 saveToHistory();
-             }
-        });
-
-        document.getElementById('btnReset').addEventListener('click', () => {
-            if(confirm("Reiniciar tudo?")) location.reload();
-        });
-
-        const fileInput = document.getElementById('fileInput');
-        fileInput.addEventListener('change', (e) => {
+        document.getElementById('fileInput').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = (event) => {
+                reader.onload = (evt) => {
                     const img = new Image();
                     img.onload = () => {
-                        const aspectRatio = img.width / img.height;
-                        let w = canvas.height * 0.8 * aspectRatio;
-                        let h = canvas.height * 0.8;
-                        
-                        floatingImg = { img: img, x: (canvas.width - w) / 2, y: (canvas.height - h) / 2, width: w, height: h };
-                        imageToolbar.style.display = 'flex';
-                        canvas.style.cursor = 'move';
+                        const aspect = img.width / img.height;
+                        const h = canvas.height * 0.8;
+                        state.floatingImg = { img: img, x: (canvas.width - h*aspect)/2, y: (canvas.height - h)/2, width: h*aspect, height: h };
+                        document.getElementById('imageToolbar').style.display = 'flex';
                         renderFloatingOverlay();
                     }
-                    img.src = event.target.result;
+                    img.src = evt.target.result;
                 }
                 reader.readAsDataURL(file);
+                e.target.value = '';
             }
-            fileInput.value = '';
         });
 
         document.getElementById('btnConfirmImg').addEventListener('click', () => {
-            if (floatingImg) {
+            if (state.floatingImg) {
+                // Desenha definitivo
                 const bgImg = new Image();
-                bgImg.src = historyStack[historyStep];
+                bgImg.src = state.history[state.historyStep];
                 bgImg.onload = () => {
-                    ctx.clearRect(0,0,canvas.width, canvas.height);
                     ctx.drawImage(bgImg, 0, 0);
-                    ctx.drawImage(floatingImg.img, floatingImg.x, floatingImg.y, floatingImg.width, floatingImg.height);
-                    
-                    floatingImg = null;
-                    imageToolbar.style.display = 'none';
-                    canvas.style.cursor = 'crosshair';
+                    ctx.drawImage(state.floatingImg.img, state.floatingImg.x, state.floatingImg.y, state.floatingImg.width, state.floatingImg.height);
+                    state.floatingImg = null;
+                    document.getElementById('imageToolbar').style.display = 'none';
                     saveToHistory();
                 }
             }
         });
 
         document.getElementById('btnDiscardImg').addEventListener('click', () => {
-            floatingImg = null;
-            imageToolbar.style.display = 'none';
+            state.floatingImg = null;
+            document.getElementById('imageToolbar').style.display = 'none';
+            // Restaura
             const img = new Image();
-            img.src = historyStack[historyStep];
+            img.src = state.history[state.historyStep];
+            img.onload = () => ctx.drawImage(img, 0, 0);
+        });
+
+        // === MÓDULO 4: FILTROS E AJUSTES ===
+        let originalFilterState = null;
+        
+        document.getElementById('btnFilters').addEventListener('click', () => {
+            if(state.floatingImg) return alert("Fixe a imagem antes.");
+            document.getElementById('filterPanel').style.display = 'block';
+            originalFilterState = canvas.toDataURL();
+        });
+
+        const updateFilter = () => {
+            if(!originalFilterState) return;
+            const img = new Image();
             img.onload = () => {
                 ctx.clearRect(0,0,canvas.width, canvas.height);
-                ctx.drawImage(img,0,0);
-            }
-            canvas.style.cursor = 'crosshair';
-        });
+                ctx.save();
+                
+                // CSS Filters
+                const blur = document.getElementById('filterBlur').value;
+                const mode = document.getElementById('filterMode').value;
+                let filterStr = `blur(${blur}px)`;
+                if(mode !== 'normal') filterStr += ` ${mode === 'grayscale' ? 'grayscale' : mode}(100%)`;
+                ctx.filter = filterStr;
+                ctx.drawImage(img, 0, 0);
+                ctx.restore();
 
-        // --- SISTEMA DE FILTROS ---
-        let originalFilterState = null; 
+                // RGB Channels
+                const r = document.getElementById('channelR').value / 100;
+                const g = document.getElementById('channelG').value / 100;
+                const b = document.getElementById('channelB').value / 100;
+                
+                if(r !== 1 || g !== 1 || b !== 1) {
+                    const idata = ctx.getImageData(0,0,canvas.width, canvas.height);
+                    for(let i=0; i<idata.data.length; i+=4) {
+                        idata.data[i] *= r;
+                        idata.data[i+1] *= g;
+                        idata.data[i+2] *= b;
+                    }
+                    ctx.putImageData(idata, 0, 0);
+                }
+            };
+            img.src = originalFilterState;
+        };
 
-        document.getElementById('btnFilters').addEventListener('click', () => {
-            if(floatingImg) { alert("Finalize a importação da imagem antes de aplicar filtros."); return; }
-            filterPanel.style.display = 'block';
-            originalFilterState = new Image();
-            originalFilterState.src = canvas.toDataURL();
-            document.getElementById('filterBlur').value = 0;
-            document.getElementById('filterMode').value = 'normal';
-            document.getElementById('channelR').value = 100;
-            document.getElementById('channelG').value = 100;
-            document.getElementById('channelB').value = 100;
-            updateFilterLabels();
-        });
-
-        function closeAndCancelFilters() {
-            if (originalFilterState) {
-                ctx.clearRect(0,0,canvas.width,canvas.height);
-                ctx.drawImage(originalFilterState, 0, 0);
-            }
-            filterPanel.style.display = 'none';
-            originalFilterState = null;
-        }
-
-        document.getElementById('closeFilters').addEventListener('click', closeAndCancelFilters);
-        document.getElementById('btnCancelFilter').addEventListener('click', closeAndCancelFilters);
-
+        document.querySelectorAll('.filter-input').forEach(el => el.addEventListener('input', updateFilter));
+        
         document.getElementById('btnConfirmFilter').addEventListener('click', () => {
             saveToHistory();
-            filterPanel.style.display = 'none';
+            document.getElementById('filterPanel').style.display = 'none';
+            originalFilterState = null;
+        });
+        
+        document.getElementById('btnCancelFilter').addEventListener('click', () => {
+            const img = new Image();
+            img.onload = () => ctx.drawImage(img, 0, 0);
+            img.src = originalFilterState;
+            document.getElementById('filterPanel').style.display = 'none';
             originalFilterState = null;
         });
 
-        document.querySelectorAll('.filter-input').forEach(input => {
-            input.addEventListener('input', updateFilterPreview);
-        });
-
-        function updateFilterLabels() {
-             document.getElementById('valBlur').innerText = document.getElementById('filterBlur').value;
-             document.getElementById('valR').innerText = document.getElementById('channelR').value;
-             document.getElementById('valG').innerText = document.getElementById('channelG').value;
-             document.getElementById('valB').innerText = document.getElementById('channelB').value;
+        // Controles de Ferramenta
+        const setTool = (t, id) => {
+            if(state.floatingImg) return;
+            state.tool = t;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
         }
-
-        function updateFilterPreview() {
-            if (!originalFilterState) return;
-            updateFilterLabels();
-
-            const blur = document.getElementById('filterBlur').value;
-            const mode = document.getElementById('filterMode').value;
-            const rVal = document.getElementById('channelR').value / 100;
-            const gVal = document.getElementById('channelG').value / 100;
-            const bVal = document.getElementById('channelB').value / 100;
-
-            let filterString = `blur(${blur}px)`;
-            if(mode === 'grayscale') filterString += ' grayscale(100%)';
-            if(mode === 'sepia') filterString += ' sepia(100%)';
-            if(mode === 'invert') filterString += ' invert(100%)';
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.save();
-            ctx.filter = filterString;
-            ctx.drawImage(originalFilterState, 0, 0);
-            ctx.restore();
-            ctx.filter = 'none';
-
-            if (rVal !== 1 || gVal !== 1 || bVal !== 1) {
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imageData.data;
-                for (let i = 0; i < data.length; i += 4) {
-                    data[i]     = Math.min(255, data[i] * rVal);     
-                    data[i + 1] = Math.min(255, data[i + 1] * gVal); 
-                    data[i + 2] = Math.min(255, data[i + 2] * bVal); 
-                }
-                ctx.putImageData(imageData, 0, 0);
+        document.getElementById('btnPencil').onclick = () => setTool('pencil', 'btnPencil');
+        document.getElementById('btnEraser').onclick = () => setTool('eraser', 'btnEraser');
+        document.getElementById('btnClear').onclick = () => {
+            if(confirm('Limpar tela?')) {
+                ctx.fillStyle = "white"; ctx.fillRect(0,0,canvas.width,canvas.height);
+                state.floatingImg = null;
+                saveToHistory();
             }
-        }
+        };
 
-        const panelHeader = document.getElementById('filterPanelHeader');
-        let isDraggingPanel = false, pStartX, pStartY, pInitLeft, pInitTop;
-        panelHeader.addEventListener('mousedown', (e) => {
-            isDraggingPanel = true;
-            pStartX = e.clientX; pStartY = e.clientY;
-            pInitLeft = filterPanel.offsetLeft; pInitTop = filterPanel.offsetTop;
-        });
-        window.addEventListener('mousemove', (e) => {
-            if(isDraggingPanel) {
-                filterPanel.style.left = (pInitLeft + e.clientX - pStartX) + 'px';
-                filterPanel.style.top = (pInitTop + e.clientY - pStartY) + 'px';
-            }
-        });
-        window.addEventListener('mouseup', () => isDraggingPanel = false);
-
-
-        // --- THREE.JS E EXPORTAÇÃO (ATUALIZADO) ---
-        let scene, camera, renderer, mugMesh, printMesh;
-        const rendererContainer = document.getElementById('renderer-container');
-
+        // === MÓDULO 5: VISUALIZAÇÃO 3D (THREE.JS) ===
+        let scene, camera, renderer, printMesh;
         function init3D() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xe0e0e0);
-            camera = new THREE.PerspectiveCamera(35, rendererContainer.clientWidth / rendererContainer.clientHeight, 0.1, 1000);
-            camera.position.set(0, 1.5, 4);
-            camera.lookAt(0, 0, 0);
-
+            const container = document.getElementById('renderer-container');
+            scene = new THREE.Scene(); scene.background = new THREE.Color(0xe0e0e0);
+            
+            camera = new THREE.PerspectiveCamera(35, container.clientWidth/container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 1.5, 4); camera.lookAt(0,0,0);
+            
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(rendererContainer.clientWidth, rendererContainer.clientHeight);
-            rendererContainer.appendChild(renderer.domElement);
-
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            dirLight.position.set(2, 5, 5);
-            scene.add(dirLight);
-
-            const mugGroup = new THREE.Group();
-
-            const geometryCylinder = new THREE.CylinderGeometry(0.8, 0.8, 1.8, 64);
-            const materialWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.1 });
-            mugMesh = new THREE.Mesh(geometryCylinder, materialWhite);
-            mugGroup.add(mugMesh);
-
-            const thetaLength = 2 * Math.PI * 0.85; 
-            const thetaStart = Math.PI - (thetaLength / 2); 
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
             
-            const geometryPrint = new THREE.CylinderGeometry(0.805, 0.805, 1.6, 64, 1, true, thetaStart, thetaLength);
+            const light = new THREE.DirectionalLight(0xffffff, 0.8);
+            light.position.set(2, 5, 5); scene.add(light); scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+            const group = new THREE.Group();
             
-            const initialCanvas = document.createElement('canvas');
-            initialCanvas.width = 1; initialCanvas.height = 1;
-            const ictx = initialCanvas.getContext('2d');
-            ictx.fillStyle = 'white'; ictx.fillRect(0,0,1,1);
-            const texture = new THREE.CanvasTexture(initialCanvas);
+            // Corpo da caneca
+            const matWhite = new THREE.MeshStandardMaterial({color: 0xffffff, roughness: 0.3});
+            group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.8, 64), matWhite));
+            
+            // Alça
+            const handle = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.12, 16, 100, Math.PI), matWhite);
+            handle.rotation.z = -Math.PI/2; handle.position.set(0.8, 0, 0); group.add(handle);
 
-            const materialPrint = new THREE.MeshStandardMaterial({ 
-                map: texture, 
-                transparent: true,
-                roughness: 0.3, 
-                metalness: 0.1,
-                side: THREE.DoubleSide
-            });
+            // Área de Impressão (Cilindro externo transparente)
+            // Rotacionado 90 graus (PI/2) para alinhar a abertura com a alça
+            const printGeo = new THREE.CylinderGeometry(0.805, 0.805, 1.6, 64, 1, true, Math.PI - (2*Math.PI*0.85/2), 2*Math.PI*0.85);
+            const printMat = new THREE.MeshStandardMaterial({transparent: true, side: THREE.DoubleSide});
+            printMesh = new THREE.Mesh(printGeo, printMat);
+            printMesh.rotation.y = Math.PI / 2; // Ajuste fino de rotação
+            group.add(printMesh);
 
-            printMesh = new THREE.Mesh(geometryPrint, materialPrint);
-            printMesh.rotation.y = Math.PI / 2;
+            scene.add(group);
 
-            mugGroup.add(printMesh);
-
-            const geometryHandle = new THREE.TorusGeometry(0.5, 0.12, 16, 100, Math.PI);
-            const handle = new THREE.Mesh(geometryHandle, materialWhite);
-            handle.rotation.z = -Math.PI / 2;
-            handle.position.set(0.8, 0, 0);
-            mugGroup.add(handle);
-
-            scene.add(mugGroup);
-
+            // Loop de Animação
+            let dragging = false, lastX = 0;
             function animate() {
                 requestAnimationFrame(animate);
-                if(!window.isDragging3D) mugGroup.rotation.y += 0.002;
+                if(!dragging) group.rotation.y += 0.002;
                 renderer.render(scene, camera);
             }
             animate();
 
-            window.isDragging3D = false;
-            let lastX3D;
-            rendererContainer.addEventListener('mousedown', (e) => { window.isDragging3D = true; lastX3D = e.offsetX; });
-            window.addEventListener('mouseup', () => window.isDragging3D = false);
-            rendererContainer.addEventListener('mousemove', (e) => {
-                if(window.isDragging3D) {
-                    const delta = e.offsetX - lastX3D;
-                    mugGroup.rotation.y += delta * 0.01;
-                    lastX3D = e.offsetX;
+            // Interação 3D
+            container.onmousedown = (e) => { dragging = true; lastX = e.offsetX; };
+            window.onmouseup = () => dragging = false;
+            container.onmousemove = (e) => {
+                if(dragging) {
+                    group.rotation.y += (e.offsetX - lastX) * 0.01;
+                    lastX = e.offsetX;
                 }
-            });
+            };
         }
         init3D();
 
-        document.getElementById('btnApply').addEventListener('click', () => {
-            if(floatingImg) { alert("Fixe ou cancele a imagem primeiro."); return; }
-            const newTexture = new THREE.CanvasTexture(canvas);
-            
-            printMesh.material.map = newTexture;
+        document.getElementById('btnApply').onclick = () => {
+            if(state.floatingImg) return alert("Fixe a imagem primeiro.");
+            const tex = new THREE.CanvasTexture(canvas);
+            printMesh.material.map = tex;
             printMesh.material.map.needsUpdate = true;
             printMesh.material.needsUpdate = true;
-        });
+        };
 
-        // --- ENVIO INTEGRADO COM GOOGLE APPS SCRIPT ---
-        document.getElementById('btnSend').addEventListener('click', async () => {
-             if(floatingImg) { alert("Fixe a imagem primeiro!"); return; }
-             const userEmail = document.getElementById('userEmail').value;
-             if(!userEmail.includes('@')) { alert("Digite um e-mail válido para a cópia do pedido."); return; }
+        // === MÓDULO 6: API E ENVIO (BACKEND) ===
+        document.getElementById('btnSend').onclick = async () => {
+            const email = document.getElementById('userEmail').value;
+            if(!email.includes('@')) return alert("Preencha o e-mail.");
+            
+            if(!confirm("Enviar pedido para produção?")) return;
 
-             // Verificação se a URL do Script foi configurada
-             if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === "") {
-                 alert("ERRO DE CONFIGURAÇÃO:\n\nVocê precisa configurar o Google Apps Script e colar a URL no código deste site (variável GOOGLE_SCRIPT_URL).\n\nEnquanto isso, o PDF será apenas baixado.");
-                 
-                 // Fallback: Baixar PDF apenas
-                 const { jsPDF } = window.jspdf;
-                 const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [210, 99] });
-                 const imgData = canvas.toDataURL("image/jpeg", 1.0);
-                 pdf.addImage(imgData, 'JPEG', 0, 0, 210, 99);
-                 pdf.save(`Pedido_${Date.now()}.pdf`);
-                 return;
-             }
+            loadingOverlay.style.display = 'flex';
+            loadingText.innerText = "Gerando PDF...";
 
-             const confirmSend = confirm("Deseja processar o pedido?\nIsso salvará o arquivo no Drive e enviará e-mail.");
-             if (!confirmSend) return;
+            try {
+                // 1. Gera PDF
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [210, 99] });
+                const imgData = canvas.toDataURL("image/jpeg", 0.95);
+                pdf.addImage(imgData, 'JPEG', 0, 0, 210, 99);
+                
+                // Converte para Base64 puro (sem cabeçalho data:...)
+                const pdfBase64 = pdf.output('datauristring').split(',')[1];
+                const orderId = Date.now();
 
-             loadingOverlay.style.display = 'flex';
-             loadingText.innerText = "Gerando arquivo...";
+                // 2. Prepara Envio
+                loadingText.innerText = "Conectando ao Servidor...";
+                const payload = {
+                    filename: `Pedido_${orderId}.pdf`,
+                    mimeType: "application/pdf",
+                    data: pdfBase64,
+                    email: email,
+                    orderId: orderId
+                };
 
-             try {
-                 // 1. Gerar PDF e Converter para Base64 (Sem Blob para o Script ler fácil)
-                 const { jsPDF } = window.jspdf;
-                 const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [210, 99] });
-                 const imgData = canvas.toDataURL("image/jpeg", 1.0);
-                 pdf.addImage(imgData, 'JPEG', 0, 0, 210, 99);
-                 
-                 // Pega o PDF como Data URI string e remove o cabeçalho "data:application/pdf;base64,"
-                 const pdfBase64 = pdf.output('datauristring').split(',')[1];
-                 
-                 const orderId = Date.now();
-                 const filename = `Pedido_${orderId}.pdf`;
+                // 3. Envia para Google Apps Script
+                // mode: 'no-cors' é OBRIGATÓRIO aqui para evitar erro de navegador.
+                // Isso significa que não saberemos se o Google respondeu "Sucesso" ou "Erro".
+                // Assumimos sucesso se o envio sair da máquina.
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' }, // Garante que o payload não sofra preflight
+                    body: JSON.stringify(payload)
+                });
 
-                 // 2. Enviar para o Google Apps Script
-                 loadingText.innerText = "Enviando para o Google Drive...";
+                loadingOverlay.style.display = 'none';
+                alert(`Pedido #${orderId} ENVIADO!\n\nVerifique seu e-mail (${email}) em instantes para a confirmação.`);
 
-                 // Usamos 'no-cors' para enviar dados sem esperar resposta legível (evita erro de CORS padrão do Google)
-                 // Ou usamos POST normal esperando JSON se o script estiver configurado corretamente com ContentService
-                 
-                 const payload = {
-                     filename: filename,
-                     mimeType: "application/pdf",
-                     data: pdfBase64,
-                     email: userEmail,
-                     orderId: orderId
-                 };
-
-                 // Usando mode: 'no-cors' para resolver o erro de bloqueio do navegador.
-                 // Isso envia os dados ("fire and forget"), mas não conseguimos ler a resposta de confirmação do Google.
-                 // Assumimos sucesso se o fetch não lançar erro de rede.
-                 // FIX DEFINITIVO CORS: mode 'no-cors' + Content-Type 'text/plain'
-                 
-                 await fetch(GOOGLE_SCRIPT_URL, {
-                     method: 'POST',
-                     mode: 'no-cors', 
-                     headers: {
-                        'Content-Type': 'text/plain;charset=utf-8',
-                     },
-                     body: JSON.stringify(payload)
-                 });
-
-                 // Como é no-cors, não temos response.ok ou response.json().
-                 // Assumimos que foi enviado se não cair no catch.
-                 loadingOverlay.style.display = 'none';
-                 alert(`Pedido #${orderId} enviado para processamento!\n\nO arquivo está sendo salvo no Drive e o e-mail será disparado em breve.\n\n(Verifique seu e-mail/Drive em alguns instantes)`);
-
-             } catch (error) {
-                 loadingOverlay.style.display = 'none';
-                 console.error(error);
-                 if(confirm("Erro de conexão com o Google Script.\nDeseja baixar o PDF localmente?")) {
+            } catch (err) {
+                loadingOverlay.style.display = 'none';
+                console.error(err);
+                if(confirm("Erro de conexão com o servidor.\n\nDeseja baixar o PDF e enviar manualmente?")) {
                     const { jsPDF } = window.jspdf;
                     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [210, 99] });
-                    pdf.addImage(canvas.toDataURL("image/jpeg", 1.0), 'JPEG', 0, 0, 210, 99);
-                    pdf.save(`Pedido_ERRO_${Date.now()}.pdf`);
-                 }
-             }
-        });
-
+                    pdf.addImage(canvas.toDataURL(), 'JPEG', 0, 0, 210, 99);
+                    pdf.save(`MugStudio_Manual_${Date.now()}.pdf`);
+                }
+            }
+        };
     </script>
 </body>
 </html>
