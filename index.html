@@ -337,8 +337,9 @@
 
     <!-- SCRIPT -->
     <script>
-        // --- CONFIGURAÇÃO GOOGLE ---
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyovhyuHhFnKwUMCEjlScZTCYiJrfzD_-X1vBOLekLe2xns78GwdojuhS5SjikPJrLa/exec"; 
+        // --- CONFIGURAÇÃO GOOGLE 
+        // Substitua pela URL do seu Web App implantado
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbysQfI9ECyMASiUvqoyHVY8XNKB1eUQj04gK1y3tLjzVaRRXl4xt2dVclmV-hhKbDoL/exec"; 
 
         // --- CONFIGURAÇÃO CANVAS ---
         const canvas = document.getElementById('drawingCanvas');
@@ -885,79 +886,3 @@
     </script>
 </body>
 </html>
-```
-
-### Passo 2: Configurando o Robô (Google Apps Script)
-
-Agora você precisa criar o "cérebro" que vai receber esse arquivo.
-
-1.  Acesse [script.google.com](https://script.google.com/) e clique em **Novo Projeto**.
-2.  Apague todo o código que estiver lá e cole o código abaixo:
-
-```javascript
-function doPost(e) {
-  try {
-    // 1. Ler os dados enviados pelo site
-    // O fetch envia como string no corpo do POST
-    var data = JSON.parse(e.postData.contents);
-    
-    var filename = data.filename;
-    var base64Data = data.data;
-    var userEmail = data.email;
-    var orderId = data.orderId;
-    
-    // 2. Criar ou Encontrar a Pasta "Mug Studio/Pedido"
-    var folderName = "Mug Studio/Pedido";
-    var folders = DriveApp.getFoldersByName("Mug Studio");
-    var mainFolder;
-    
-    if (folders.hasNext()) {
-      mainFolder = folders.next();
-    } else {
-      mainFolder = DriveApp.createFolder("Mug Studio");
-    }
-    
-    var subFolders = mainFolder.getFoldersByName("Pedido");
-    var targetFolder;
-    
-    if (subFolders.hasNext()) {
-      targetFolder = subFolders.next();
-    } else {
-      targetFolder = mainFolder.createFolder("Pedido");
-    }
-    
-    // 3. Decodificar e Salvar o PDF
-    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.mimeType, filename);
-    var file = targetFolder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); // Opcional: deixar link público para enviar no e-mail
-    
-    // 4. Enviar E-mail
-    var subject = "Novo Pedido Caneca #" + orderId;
-    var body = "Olá,\n\nRecebemos um novo pedido via Mug Studio.\n\nID: " + orderId + "\nSolicitante: " + userEmail + "\n\nO arquivo foi salvo no seu Google Drive.\nLink: " + file.getUrl();
-    
-    // Envia para VOCÊ (Dono do script/drive)
-    MailApp.sendEmail({
-      to: Session.getActiveUser().getEmail(), // Seu e-mail
-      subject: subject,
-      body: body,
-      attachments: [blob] // Anexa o PDF também no e-mail
-    });
-    
-    // Envia Cópia para o Cliente (se houver e-mail)
-    if(userEmail && userEmail.indexOf("@") > -1) {
-       MailApp.sendEmail({
-        to: userEmail,
-        subject: "Confirmação de Pedido - Mug Studio",
-        body: "Olá,\n\nSeu pedido foi recebido com sucesso.\nID: " + orderId + "\n\nSegue o arquivo PDF em anexo.",
-        attachments: [blob]
-      });
-    }
-
-    // 5. Retornar Sucesso
-    return ContentService.createTextOutput(JSON.stringify({ 'status': 'success', 'fileId': file.getId() })).setMimeType(ContentService.MimeType.JSON);
-
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({ 'status': 'error', 'message': error.toString() })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
