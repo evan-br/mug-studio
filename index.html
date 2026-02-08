@@ -339,7 +339,6 @@
     <script>
         // --- CONFIGURAÇÃO GOOGLE ---
         // IMPORTANTE: Se você atualizar o script no Google, DEVE usar "Implantar" > "Gerenciar Implantações" > "Editar" > "Nova Versão"
-        // Caso contrário, a URL abaixo acessará a versão antiga do código.
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbysQfI9ECyMASiUvqoyHVY8XNKB1eUQj04gK1y3tLjzVaRRXl4xt2dVclmV-hhKbDoL/exec"; 
 
         // --- CONFIGURAÇÃO CANVAS ---
@@ -845,44 +844,26 @@
                  // Usando mode: 'no-cors' para resolver o erro de bloqueio do navegador.
                  // Isso envia os dados ("fire and forget"), mas não conseguimos ler a resposta de confirmação do Google.
                  // Assumimos sucesso se o fetch não lançar erro de rede.
-                 // ATUALIZAÇÃO: Removi o mode 'no-cors' para podermos ver o erro real no console se falhar.
-                 // Se o Google Script estiver configurado corretamente, ele retornará os cabeçalhos CORS.
+                 // FIX DEFINITIVO CORS: mode 'no-cors' + Content-Type 'text/plain'
                  
-                 const response = await fetch(GOOGLE_SCRIPT_URL, {
+                 await fetch(GOOGLE_SCRIPT_URL, {
                      method: 'POST',
-                     // mode: 'no-cors', // REMOVIDO PARA DEBUG
+                     mode: 'no-cors', 
+                     headers: {
+                        'Content-Type': 'text/plain;charset=utf-8',
+                     },
                      body: JSON.stringify(payload)
                  });
 
-                 const resultText = await response.text();
+                 // Como é no-cors, não temos response.ok ou response.json().
+                 // Assumimos que foi enviado se não cair no catch.
                  loadingOverlay.style.display = 'none';
-
-                 // Tenta parsear JSON, se não der, mostra o texto (erro HTML do Google)
-                 try {
-                     const jsonRes = JSON.parse(resultText);
-                     if(jsonRes.status === 'success') {
-                        alert(`SUCESSO!\n\nPedido #${orderId} salvo no Drive e e-mail enviado.`);
-                     } else {
-                        throw new Error(jsonRes.message || "Erro desconhecido no script");
-                     }
-                 } catch(e) {
-                     console.error("Resposta não-JSON do Google:", resultText);
-                     // Se der erro de CORS, vai cair no bloco catch abaixo, não aqui.
-                     // Se cair aqui, é porque o Google respondeu algo que não é JSON (ex: página de erro HTML 500)
-                     alert("Erro no Script do Google (Verifique os Logs no Apps Script).\n\nO PDF será baixado localmente.");
-                     pdf.save(filename);
-                 }
+                 alert(`Pedido #${orderId} enviado para processamento!\n\nO arquivo está sendo salvo no Drive e o e-mail será disparado em breve.\n\n(Verifique seu e-mail/Drive em alguns instantes)`);
 
              } catch (error) {
                  loadingOverlay.style.display = 'none';
-                 console.error("ERRO NO ENVIO:", error);
-                 
-                 let msg = "Erro ao conectar com o Google Script.\n";
-                 if(error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
-                     msg += "Possível erro de CORS: O Script falhou ou não foi implantado como 'Nova Versão'.\n";
-                 }
-                 
-                 if(confirm(msg + "\nDeseja baixar o PDF localmente?")) {
+                 console.error(error);
+                 if(confirm("Erro de conexão com o Google Script.\nDeseja baixar o PDF localmente?")) {
                     const { jsPDF } = window.jspdf;
                     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [210, 99] });
                     pdf.addImage(canvas.toDataURL("image/jpeg", 1.0), 'JPEG', 0, 0, 210, 99);
