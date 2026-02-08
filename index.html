@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mug Studio 2.1 - Filtros Live & Undo</title>
+    <title>Mug Studio 2.1</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -802,7 +802,8 @@
              
              // Cria o Blob do PDF
              const pdfBlob = pdf.output('blob');
-             
+             console.log("PDF Blob size:", pdfBlob.size); // Debug para o usuário verificar se o arquivo existe
+
              // ID do Pedido
              const orderId = Date.now();
              const filename = `Pedido_${orderId}.pdf`;
@@ -816,12 +817,14 @@
              
              formData.append('email', userEmail); // Para resposta/contato
              formData.append('_subject', `Novo Pedido Caneca #${orderId}`);
-             formData.append('_template', 'table'); // Layout bonito
+             // Removido _template para usar o padrão que lida melhor com anexos
+             // formData.append('_template', 'table'); 
+             formData.append('_captcha', 'false'); // Desativar captcha para evitar bloqueio de anexo em AJAX
              formData.append('_cc', userEmail); // Cópia para o cliente
              formData.append('mensagem', `Novo pedido gerado através do Mug Studio.\nID: ${orderId}\nSolicitante: ${userEmail}`);
              
-             // Anexa o Arquivo
-             formData.append('attachment', pdfBlob, filename);
+             // Anexa o Arquivo - Renomeado para evitar conflitos de palavras reservadas
+             formData.append('arquivo_pedido', pdfBlob, filename);
 
              // 3. Enviar via Fetch (AJAX)
              try {
@@ -835,7 +838,7 @@
                  loadingOverlay.style.display = 'none';
 
                  if(response.ok) {
-                     alert(`Pedido #${orderId} enviado com SUCESSO!\n\nUma cópia foi enviada para: ${userEmail}`);
+                     alert(`Pedido #${orderId} enviado com SUCESSO!\n\nUma cópia foi enviada para: ${userEmail}\n(Verifique também a caixa de Spam)`);
                  } else {
                      console.error(result);
                      // Fallback em caso de erro na resposta do servidor
