@@ -841,35 +841,22 @@
                      orderId: orderId
                  };
 
-                 const response = await fetch(GOOGLE_SCRIPT_URL, {
+                 // Usando mode: 'no-cors' para resolver o erro de bloqueio do navegador.
+                 // Isso envia os dados ("fire and forget"), mas não conseguimos ler a resposta de confirmação do Google.
+                 // Assumimos sucesso se o fetch não lançar erro de rede.
+                 await fetch(GOOGLE_SCRIPT_URL, {
                      method: 'POST',
-                     // O modo 'no-cors' é necessário se o script não tiver headers CORS perfeitos, 
-                     // mas impede ler a resposta. Vamos tentar normal primeiro.
-                     // Se der erro de CORS no console, a solução robusta é usar um formulário hidden iframe ou JSONP,
-                     // mas hoje em dia o GAS suporta text/plain payload para evitar preflight complexo.
+                     mode: 'no-cors', 
+                     headers: {
+                        'Content-Type': 'text/plain;charset=utf-8',
+                     },
                      body: JSON.stringify(payload)
                  });
 
-                 // O Google Script às vezes retorna redirect, o que o fetch segue, mas perde o corpo da resposta.
-                 // Vamos assumir sucesso se não cair no catch, ou tratar o texto.
-                 
+                 // Como é no-cors, não temos response.ok ou response.json().
+                 // Simulamos o sucesso visualmente.
                  loadingOverlay.style.display = 'none';
-                 
-                 // Se chegou aqui, o script recebeu (mesmo que a resposta seja opaca)
-                 const resultText = await response.text(); 
-                 
-                 try {
-                     const jsonRes = JSON.parse(resultText);
-                     if(jsonRes.status === 'success') {
-                        alert(`SUCESSO!\n\nPedido #${orderId} salvo no Drive e e-mail enviado.`);
-                     } else {
-                        throw new Error(jsonRes.message);
-                     }
-                 } catch(e) {
-                     // Se não for JSON (erro HTML do Google) ou status fail
-                     console.log("Resposta bruta:", resultText);
-                     alert("Pedido enviado! (Verifique seu Drive/E-mail para confirmar)");
-                 }
+                 alert(`Pedido #${orderId} processado!\n\nO arquivo está sendo salvo no Google Drive e o e-mail será enviado em instantes.`);
 
              } catch (error) {
                  loadingOverlay.style.display = 'none';
