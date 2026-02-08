@@ -588,8 +588,16 @@
                 const imgData = canvas.toDataURL("image/jpeg", 0.95);
                 pdf.addImage(imgData, 'JPEG', 0, 0, 210, 99);
                 
-                // Converte para Base64 puro (sem cabeçalho data:...)
-                const pdfBase64 = pdf.output('datauristring').split(',')[1];
+                // --- CORREÇÃO DE SEGURANÇA BASE64 ---
+                // Converte para Base64 usando arraybuffer para evitar erros de charset
+                const pdfArray = pdf.output('arraybuffer');
+                let binaryString = "";
+                const bytes = new Uint8Array(pdfArray);
+                for (let i = 0; i < bytes.byteLength; i++) {
+                    binaryString += String.fromCharCode(bytes[i]);
+                }
+                const pdfBase64 = btoa(binaryString);
+                
                 const orderId = Date.now();
 
                 // 2. Prepara Envio
