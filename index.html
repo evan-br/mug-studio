@@ -201,16 +201,18 @@
 
             <!-- Rodapé Controles -->
             <div class="bg-[#c0c0c0] p-3 border-t-2 border-gray-400 flex flex-wrap justify-between items-center gap-4 z-20">
-                <div class="flex items-center gap-2">
-                     <label class="text-xs font-bold">Solicitante:</label>
-                     <div class="win95-box bg-white px-2">
-                        <input type="email" id="userEmail" placeholder="seu@email.com" class="outline-none text-sm w-56 bg-transparent">
+                <div class="flex items-center gap-2 flex-grow">
+                     <label class="text-xs font-bold whitespace-nowrap">Dados:</label>
+                     <div class="win95-box bg-white px-2 flex gap-2 w-full max-w-lg">
+                        <input type="email" id="userEmail" placeholder="E-mail (Para compartilhar)" class="outline-none text-sm w-1/2 bg-transparent">
+                        <div class="w-[1px] bg-gray-400"></div>
+                        <input type="tel" id="userPhone" placeholder="Telefone/Zap" class="outline-none text-sm w-1/2 bg-transparent">
                      </div>
                 </div>
                 <div class="flex gap-2">
                     <button id="btnReset" class="win95-box px-4 py-1 font-bold hover:bg-red-100 text-sm"><i class="fas fa-bomb mr-1"></i> Reset</button>
                     <button id="btnApply" class="win95-box px-4 py-1 font-bold hover:bg-blue-100 text-sm"><i class="fas fa-cube mr-1"></i> 3D</button>
-                    <button id="btnSend" class="win95-box px-4 py-1 font-bold hover:bg-green-100 text-sm"><i class="fas fa-paper-plane mr-1"></i> Enviar</button>
+                    <button id="btnSend" class="win95-box px-4 py-1 font-bold hover:bg-green-100 text-sm whitespace-nowrap"><i class="fas fa-save mr-1"></i> Salvar Pedido</button>
                 </div>
             </div>
 
@@ -226,6 +228,7 @@
     =========================================== -->
     <script>
         // === CONFIGURAÇÃO GLOBAL ===
+        // URL DO GOOGLE APPS SCRIPT (Certifique-se de que está atualizado)
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbysQfI9ECyMASiUvqoyHVY8XNKB1eUQj04gK1y3tLjzVaRRXl4xt2dVclmV-hhKbDoL/exec";
         
         // Elementos DOM Principais
@@ -281,17 +284,15 @@
         // === MÓDULO 2: FERRAMENTAS DE DESENHO ===
         function getMousePos(evt) {
             const rect = canvas.getBoundingClientRect();
-            // Suporte unificado para mouse e touch
             const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
             const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
             return { x: clientX - rect.left, y: clientY - rect.top };
         }
 
         function handleStart(e) {
-            if(e.type === 'touchstart') e.preventDefault(); // Previne scroll no mobile
+            if(e.type === 'touchstart') e.preventDefault(); 
             const pos = getMousePos(e);
 
-            // Se tem imagem flutuante, verifica se clicou nela para arrastar
             if (state.floatingImg) {
                 const img = state.floatingImg;
                 if (pos.x >= img.x && pos.x <= img.x + img.width &&
@@ -304,7 +305,6 @@
                 return;
             }
 
-            // Desenho normal
             state.isDrawing = true;
             state.lastX = pos.x; state.lastY = pos.y;
             
@@ -318,7 +318,6 @@
             if(e.type === 'touchmove') e.preventDefault();
             const pos = getMousePos(e);
 
-            // Arrastar Imagem
             if (state.floatingImg && state.drag.active) {
                 state.floatingImg.x = pos.x - state.drag.startX;
                 state.floatingImg.y = pos.y - state.drag.startY;
@@ -326,7 +325,6 @@
                 return;
             }
 
-            // Riscar
             if (!state.isDrawing || state.floatingImg) return;
 
             ctx.beginPath();
@@ -346,12 +344,10 @@
             canvas.style.cursor = state.floatingImg ? 'move' : 'crosshair';
         }
 
-        // Listeners do Canvas
         ['mousedown', 'touchstart'].forEach(ev => canvas.addEventListener(ev, handleStart));
         ['mousemove', 'touchmove'].forEach(ev => canvas.addEventListener(ev, handleMove));
         ['mouseup', 'mouseout', 'touchend'].forEach(ev => canvas.addEventListener(ev, handleEnd));
         
-        // Zoom da Imagem (Scroll)
         canvas.addEventListener('wheel', (e) => {
             if (state.floatingImg) {
                 e.preventDefault();
@@ -369,13 +365,11 @@
         // === MÓDULO 3: IMAGEM FLUTUANTE ===
         function renderFloatingOverlay() {
             if (!state.floatingImg) return;
-            // Redesenha o background (histórico) e depois a imagem por cima
             const bgImg = new Image();
             bgImg.src = state.history[state.historyStep];
             bgImg.onload = () => {
                 ctx.clearRect(0,0,canvas.width, canvas.height);
                 ctx.drawImage(bgImg, 0, 0);
-                
                 const f = state.floatingImg;
                 ctx.save();
                 ctx.drawImage(f.img, f.x, f.y, f.width, f.height);
@@ -407,7 +401,6 @@
 
         document.getElementById('btnConfirmImg').addEventListener('click', () => {
             if (state.floatingImg) {
-                // Desenha definitivo
                 const bgImg = new Image();
                 bgImg.src = state.history[state.historyStep];
                 bgImg.onload = () => {
@@ -423,7 +416,6 @@
         document.getElementById('btnDiscardImg').addEventListener('click', () => {
             state.floatingImg = null;
             document.getElementById('imageToolbar').style.display = 'none';
-            // Restaura
             const img = new Image();
             img.src = state.history[state.historyStep];
             img.onload = () => ctx.drawImage(img, 0, 0);
@@ -444,8 +436,6 @@
             img.onload = () => {
                 ctx.clearRect(0,0,canvas.width, canvas.height);
                 ctx.save();
-                
-                // CSS Filters
                 const blur = document.getElementById('filterBlur').value;
                 const mode = document.getElementById('filterMode').value;
                 let filterStr = `blur(${blur}px)`;
@@ -454,7 +444,6 @@
                 ctx.drawImage(img, 0, 0);
                 ctx.restore();
 
-                // RGB Channels
                 const r = document.getElementById('channelR').value / 100;
                 const g = document.getElementById('channelG').value / 100;
                 const b = document.getElementById('channelB').value / 100;
@@ -462,9 +451,7 @@
                 if(r !== 1 || g !== 1 || b !== 1) {
                     const idata = ctx.getImageData(0,0,canvas.width, canvas.height);
                     for(let i=0; i<idata.data.length; i+=4) {
-                        idata.data[i] *= r;
-                        idata.data[i+1] *= g;
-                        idata.data[i+2] *= b;
+                        idata.data[i] *= r; idata.data[i+1] *= g; idata.data[i+2] *= b;
                     }
                     ctx.putImageData(idata, 0, 0);
                 }
@@ -510,7 +497,6 @@
         function init3D() {
             const container = document.getElementById('renderer-container');
             scene = new THREE.Scene(); scene.background = new THREE.Color(0xe0e0e0);
-            
             camera = new THREE.PerspectiveCamera(35, container.clientWidth/container.clientHeight, 0.1, 1000);
             camera.position.set(0, 1.5, 4); camera.lookAt(0,0,0);
             
@@ -523,25 +509,21 @@
 
             const group = new THREE.Group();
             
-            // Corpo da caneca
+            // Corpo e Alça
             const matWhite = new THREE.MeshStandardMaterial({color: 0xffffff, roughness: 0.3});
             group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.8, 64), matWhite));
-            
-            // Alça
             const handle = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.12, 16, 100, Math.PI), matWhite);
             handle.rotation.z = -Math.PI/2; handle.position.set(0.8, 0, 0); group.add(handle);
 
-            // Área de Impressão (Cilindro externo transparente)
-            // Rotacionado 90 graus (PI/2) para alinhar a abertura com a alça
+            // Área Impressão
             const printGeo = new THREE.CylinderGeometry(0.805, 0.805, 1.6, 64, 1, true, Math.PI - (2*Math.PI*0.85/2), 2*Math.PI*0.85);
             const printMat = new THREE.MeshStandardMaterial({transparent: true, side: THREE.DoubleSide});
             printMesh = new THREE.Mesh(printGeo, printMat);
-            printMesh.rotation.y = Math.PI / 2; // Ajuste fino de rotação
+            printMesh.rotation.y = Math.PI / 2;
             group.add(printMesh);
 
             scene.add(group);
 
-            // Loop de Animação
             let dragging = false, lastX = 0;
             function animate() {
                 requestAnimationFrame(animate);
@@ -550,14 +532,10 @@
             }
             animate();
 
-            // Interação 3D
             container.onmousedown = (e) => { dragging = true; lastX = e.offsetX; };
             window.onmouseup = () => dragging = false;
             container.onmousemove = (e) => {
-                if(dragging) {
-                    group.rotation.y += (e.offsetX - lastX) * 0.01;
-                    lastX = e.offsetX;
-                }
+                if(dragging) { group.rotation.y += (e.offsetX - lastX) * 0.01; lastX = e.offsetX; }
             };
         }
         init3D();
@@ -570,12 +548,17 @@
             printMesh.material.needsUpdate = true;
         };
 
-        // === MÓDULO 6: API E ENVIO (BACKEND) ===
+        // === MÓDULO 6: API E ENVIO (BACKEND ATUALIZADO) ===
         document.getElementById('btnSend').onclick = async () => {
-            const email = document.getElementById('userEmail').value;
-            if(!email.includes('@')) return alert("Preencha o e-mail.");
+            // Validação de Campos
+            const email = document.getElementById('userEmail').value.trim();
+            const phone = document.getElementById('userPhone').value.trim();
             
-            if(!confirm("Enviar pedido para produção?")) return;
+            if(!email && !phone) {
+                return alert("Por favor, preencha o E-mail OU o Telefone para identificarmos seu pedido.");
+            }
+            
+            if(!confirm("Salvar pedido no servidor?")) return;
 
             loadingOverlay.style.display = 'flex';
             loadingText.innerText = "Gerando PDF...";
@@ -587,8 +570,7 @@
                 const imgData = canvas.toDataURL("image/jpeg", 0.95);
                 pdf.addImage(imgData, 'JPEG', 0, 0, 210, 99);
                 
-                // --- CORREÇÃO DE SEGURANÇA BASE64 ---
-                // Converte para Base64 usando arraybuffer para evitar erros de charset
+                // Converte para Base64 (Binário Seguro)
                 const pdfArray = pdf.output('arraybuffer');
                 let binaryString = "";
                 const bytes = new Uint8Array(pdfArray);
@@ -598,43 +580,52 @@
                 const pdfBase64 = btoa(binaryString);
                 
                 const orderId = Date.now();
+                
+                // Define identificador do arquivo (Prioriza Email, se não, usa Telefone limpo)
+                const contactId = email ? email : phone.replace(/\D/g, '');
+                const filename = `${orderId}_${contactId}.pdf`;
 
                 // 2. Prepara Envio
-                loadingText.innerText = "Conectando ao Servidor...";
+                loadingText.innerText = "Enviando...";
                 const payload = {
-                    filename: `Pedido_${orderId}.pdf`,
+                    filename: filename,
                     mimeType: "application/pdf",
                     data: pdfBase64,
-                    email: email,
+                    email: email, // Envia vazio se não tiver, o script trata
+                    phone: phone,
                     orderId: orderId
                 };
 
                 // 3. Envia para Google Apps Script
-                // mode: 'no-cors' é OBRIGATÓRIO aqui para evitar erro de navegador.
-                // Isso significa que não saberemos se o Google respondeu "Sucesso" ou "Erro".
-                // Assumimos sucesso se o envio sair da máquina.
                 await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
                     mode: 'no-cors',
-                    headers: { 'Content-Type': 'text/plain' }, // Garante que o payload não sofra preflight
+                    headers: { 'Content-Type': 'text/plain' }, 
                     body: JSON.stringify(payload)
                 });
 
                 loadingOverlay.style.display = 'none';
-                alert(`Pedido #${orderId} ENVIADO!\n\nVerifique seu e-mail (${email}) em instantes para a confirmação.`);
+                
+                // Mensagem de Sucesso Condicional
+                let msg = `Pedido #${orderId} SALVO COM SUCESSO!\n`;
+                if(email) {
+                    msg += "O arquivo foi compartilhado com seu Google Drive (verifique o aviso do Google).\n";
+                }
+                msg += "\nPara confirmar prazos e valores, envie este número de pedido para:\n+55 (41) 99674-3862";
+                
+                alert(msg);
 
             } catch (err) {
                 loadingOverlay.style.display = 'none';
                 console.error(err);
-                if(confirm("Erro de conexão com o servidor.\n\nDeseja baixar o PDF e enviar manualmente?")) {
+                if(confirm("Erro de conexão.\nDeseja baixar o PDF e enviar manualmente?")) {
                     const { jsPDF } = window.jspdf;
                     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [210, 99] });
                     pdf.addImage(canvas.toDataURL(), 'JPEG', 0, 0, 210, 99);
-                    pdf.save(`MugStudio_Manual_${Date.now()}.pdf`);
+                    pdf.save(`${Date.now()}_manual.pdf`);
                 }
             }
         };
     </script>
 </body>
 </html>
-
