@@ -338,7 +338,7 @@
     <!-- SCRIPT -->
     <script>
         // --- CONFIGURAÇÃO GOOGLE ---
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbysQfI9ECyMASiUvqoyHVY8XNKB1eUQj04gK1y3tLjzVaRRXl4xt2dVclmV-hhKbDoL/exec"; 
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyovhyuHhFnKwUMCEjlScZTCYiJrfzD_-X1vBOLekLe2xns78GwdojuhS5SjikPJrLa/exec"; 
 
         // --- CONFIGURAÇÃO CANVAS ---
         const canvas = document.getElementById('drawingCanvas');
@@ -960,3 +960,4 @@ function doPost(e) {
     return ContentService.createTextOutput(JSON.stringify({ 'status': 'error', 'message': error.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
 }
+
