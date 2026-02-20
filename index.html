@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mug Studio 2.5 - Borders Edition</title>
+    <title>Mug Studio 2.6 - Real-Time 3D</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -34,7 +34,6 @@
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 10px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Estilo Botões de Borda */
         .border-option { width: 100%; text-align: left; padding: 4px; margin-bottom: 2px; font-size: 12px; cursor: pointer; border: 1px solid transparent; }
         .border-option:hover { background-color: #000080; color: white; }
     </style>
@@ -49,7 +48,7 @@
 
     <header class="bg-[#000080] text-white p-2 flex justify-between items-center select-none">
         <div class="font-bold tracking-wide pl-2 flex items-center gap-2">
-            <i class="fas fa-coffee"></i> Mug Studio v2.5
+            <i class="fas fa-coffee"></i> Mug Studio v2.6 (Live 3D)
         </div>
         <button class="win95-box text-black px-2 font-bold hover:bg-red-200" onclick="window.location.reload()">X</button>
     </header>
@@ -81,9 +80,7 @@
                 <input type="file" id="fileInput" accept="image/*" class="hidden">
             </div>
             
-            <!-- Botão Bordas (Novo) -->
             <button id="btnBorders" class="tool-btn w-10 h-10 text-indigo-800" title="Adicionar Borda"><i class="fas fa-border-style"></i></button>
-            
             <button id="btnFilters" class="tool-btn w-10 h-10 text-blue-800" title="Filtros"><i class="fas fa-sliders-h"></i></button>
             
             <div class="flex-grow"></div>
@@ -120,7 +117,7 @@
                 </div>
             </div>
 
-            <!-- Painel de Bordas (NOVO) -->
+            <!-- Painel de Bordas -->
             <div id="borderPanel" class="floating-panel p-2" style="left: 150px; top: 100px;">
                 <div class="panel-header mb-2" id="borderPanelHeader">
                     <span>Adicionar Borda</span> <button id="closeBorders" class="hover:text-red-300">x</button>
@@ -161,14 +158,14 @@
                      </div>
                 </div>
                 <div class="flex gap-2">
-                    <button id="btnReset" class="win95-box px-4 py-1 font-bold hover:bg-red-100 text-sm"><i class="fas fa-bomb mr-1"></i> Reset</button>
-                    <button id="btnApply" class="win95-box px-4 py-1 font-bold hover:bg-blue-100 text-sm"><i class="fas fa-cube mr-1"></i> 3D</button>
+                    <!-- Botão Reset atualizado e Botão 3D Removido -->
+                    <button id="btnReset" class="win95-box px-4 py-1 font-bold hover:bg-red-100 text-sm"><i class="fas fa-bomb mr-1"></i> Reset Total</button>
                     <button id="btnSend" class="win95-box px-4 py-1 font-bold hover:bg-green-100 text-sm whitespace-nowrap"><i class="fas fa-save mr-1"></i> Salvar Pedido</button>
                 </div>
             </div>
 
             <div id="renderer-container">
-                <div class="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded pointer-events-none z-10">Preview 3D</div>
+                <div class="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded pointer-events-none z-10">Preview 3D (Live)</div>
             </div>
         </main>
     </div>
@@ -191,12 +188,18 @@
         };
         const ctx = EL.canvas.getContext('2d');
 
+        // --- ARQUITETURA OFFSCREEN CANVAS (Real-Time 3D) ---
+        // O exportCanvas armazena a arte "limpa", sem caixas de seleção, para o 3D e PDF
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = EL.canvas.width;
+        exportCanvas.height = EL.canvas.height;
+        const exportCtx = exportCanvas.getContext('2d');
+
         // --- STATE & LAYERS ---
-        // Layers: 1. Fundo Branco -> 2. Imagem -> 3. Desenho -> 4. Borda (Topo)
         const state = {
             tool: 'select',
             drawingLayer: document.createElement('canvas'),
-            borderLayer: document.createElement('canvas'), // Nova camada de borda
+            borderLayer: document.createElement('canvas'),
             imageObject: null, 
             isDrawing: false,
             lastX: 0, lastY: 0,
@@ -205,7 +208,6 @@
             historyStep: -1
         };
 
-        // Init Layers
         state.drawingLayer.width = EL.canvas.width;
         state.drawingLayer.height = EL.canvas.height;
         const drawCtx = state.drawingLayer.getContext('2d');
@@ -215,20 +217,37 @@
         const borderCtx = state.borderLayer.getContext('2d');
 
         saveToHistory();
-        renderMain();
+        // A renderização inicial será chamada após carregar o 3D para garantir a textura correta
 
-        // --- CORE RENDER LOOP ---
+        // --- CORE RENDER LOOP (Mágica do Tempo Real) ---
         function renderMain() {
-            // 1. Limpa
-            ctx.fillStyle = "white";
-            ctx.fillRect(0, 0, EL.canvas.width, EL.canvas.height);
+            // 1. Limpa o Canvas de Exportação (invisível)
+            exportCtx.fillStyle = "white";
+            exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
 
-            // 2. Imagem (Fundo)
+            // 2. Desenha Imagem no Export
             if (state.imageObject) {
                 const obj = state.imageObject;
-                ctx.drawImage(obj.img, obj.x, obj.y, obj.width, obj.height);
-                
-                // Borda de seleção (apenas visual, não sai na impressão)
+                exportCtx.drawImage(obj.img, obj.x, obj.y, obj.width, obj.height);
+            }
+
+            // 3. Desenha Rabiscos e Bordas no Export
+            exportCtx.drawImage(state.drawingLayer, 0, 0);
+            exportCtx.drawImage(state.borderLayer, 0, 0);
+
+            // 4. ATUALIZA A CANECA 3D IMEDIATAMENTE (com a arte limpa)
+            if (window.printMesh && window.printMesh.material.map) {
+                window.printMesh.material.map.needsUpdate = true;
+            }
+
+            // 5. Copia a arte limpa para o Canvas visível (da tela)
+            ctx.clearRect(0, 0, EL.canvas.width, EL.canvas.height);
+            ctx.drawImage(exportCanvas, 0, 0);
+
+            // 6. Desenha a UI (caixa azul) POR CIMA no Canvas da tela
+            // Como desenhamos no ctx da tela, isso não vai para o 3D!
+            if (state.imageObject) {
+                const obj = state.imageObject;
                 if (obj.isSelected) {
                     ctx.save();
                     ctx.strokeStyle = "#0066ff"; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
@@ -245,12 +264,6 @@
             } else {
                 EL.imgContextBar.style.display = 'none';
             }
-
-            // 3. Desenho (Meio)
-            ctx.drawImage(state.drawingLayer, 0, 0);
-
-            // 4. Borda (Topo)
-            ctx.drawImage(state.borderLayer, 0, 0);
         }
 
         // --- HISTORY SYSTEM ---
@@ -261,7 +274,7 @@
             const snapshot = {
                 imageObject: state.imageObject ? {...state.imageObject} : null,
                 drawingData: state.drawingLayer.toDataURL(),
-                borderData: state.borderLayer.toDataURL() // Salva borda também
+                borderData: state.borderLayer.toDataURL() 
             };
             state.history.push(JSON.stringify(snapshot));
             if (state.history.length > 15) { state.history.shift(); state.historyStep--; }
@@ -272,14 +285,12 @@
                 state.historyStep--;
                 const snapshot = JSON.parse(state.history[state.historyStep]);
                 
-                // Restaura Imagem
                 if (snapshot.imageObject) {
                     const img = new Image();
                     img.onload = () => { snapshot.imageObject.img = img; state.imageObject = snapshot.imageObject; renderMain(); };
                     img.src = snapshot.imageObject.img.src;
                 } else { state.imageObject = null; }
 
-                // Restaura Desenho
                 const drawImg = new Image();
                 drawImg.onload = () => {
                     drawCtx.clearRect(0,0,EL.canvas.width, EL.canvas.height);
@@ -288,7 +299,6 @@
                 };
                 drawImg.src = snapshot.drawingData;
 
-                // Restaura Borda
                 const borderImg = new Image();
                 borderImg.onload = () => {
                     borderCtx.clearRect(0,0,EL.canvas.width, EL.canvas.height);
@@ -307,7 +317,6 @@
         };
         document.getElementById('closeBorders').onclick = () => EL.borderPanel.style.display = 'none';
 
-        // Draggable Border Panel
         let isDragBP = false, bpX, bpY;
         document.getElementById('borderPanelHeader').onmousedown = (e) => {
             isDragBP = true; bpX = e.clientX - EL.borderPanel.offsetLeft; bpY = e.clientY - EL.borderPanel.offsetTop;
@@ -319,9 +328,7 @@
 
         window.applyBorder = (type) => {
             borderCtx.clearRect(0, 0, EL.canvas.width, EL.canvas.height);
-            const w = EL.canvas.width;
-            const h = EL.canvas.height;
-            const m = 15; // margin
+            const w = EL.canvas.width; const h = EL.canvas.height; const m = 15;
 
             if (type === 'random') {
                 const types = ['simple', 'double', 'colorful', 'geometric', 'baroque'];
@@ -331,67 +338,40 @@
             borderCtx.save();
             
             if (type === 'simple') {
-                borderCtx.strokeStyle = 'black';
-                borderCtx.lineWidth = 8;
+                borderCtx.strokeStyle = 'black'; borderCtx.lineWidth = 8;
                 borderCtx.strokeRect(m, m, w - m*2, h - m*2);
             }
             else if (type === 'double') {
-                borderCtx.strokeStyle = 'black';
-                borderCtx.lineWidth = 10;
+                borderCtx.strokeStyle = 'black'; borderCtx.lineWidth = 10;
                 borderCtx.strokeRect(m, m, w - m*2, h - m*2);
-                borderCtx.strokeStyle = 'white';
-                borderCtx.lineWidth = 2;
+                borderCtx.strokeStyle = 'white'; borderCtx.lineWidth = 2;
                 borderCtx.strokeRect(m + 4, m + 4, w - (m*2) - 8, h - (m*2) - 8);
-                borderCtx.strokeStyle = 'black';
-                borderCtx.lineWidth = 2;
+                borderCtx.strokeStyle = 'black'; borderCtx.lineWidth = 2;
                 borderCtx.strokeRect(m + 12, m + 12, w - (m*2) - 24, h - (m*2) - 24);
             }
             else if (type === 'colorful') {
                 const gradient = borderCtx.createLinearGradient(0, 0, w, h);
-                gradient.addColorStop(0, "red");
-                gradient.addColorStop(0.2, "orange");
-                gradient.addColorStop(0.4, "yellow");
-                gradient.addColorStop(0.6, "green");
-                gradient.addColorStop(0.8, "blue");
-                gradient.addColorStop(1, "violet");
-                borderCtx.strokeStyle = gradient;
-                borderCtx.lineWidth = 15;
+                gradient.addColorStop(0, "red"); gradient.addColorStop(0.2, "orange"); gradient.addColorStop(0.4, "yellow");
+                gradient.addColorStop(0.6, "green"); gradient.addColorStop(0.8, "blue"); gradient.addColorStop(1, "violet");
+                borderCtx.strokeStyle = gradient; borderCtx.lineWidth = 15;
                 borderCtx.strokeRect(m, m, w - m*2, h - m*2);
             }
             else if (type === 'geometric') {
-                borderCtx.strokeStyle = 'black';
-                borderCtx.lineWidth = 4;
+                borderCtx.strokeStyle = 'black'; borderCtx.lineWidth = 4;
                 borderCtx.strokeRect(m, m, w - m*2, h - m*2);
-                
-                // Triângulos nos cantos
-                const s = 40; // size
-                const corners = [[m, m], [w-m, m], [w-m, h-m], [m, h-m]];
+                const s = 40; 
                 borderCtx.fillStyle = 'black';
-                
-                // Top Left
                 borderCtx.beginPath(); borderCtx.moveTo(m, m); borderCtx.lineTo(m+s, m); borderCtx.lineTo(m, m+s); borderCtx.fill();
-                // Top Right
                 borderCtx.beginPath(); borderCtx.moveTo(w-m, m); borderCtx.lineTo(w-m-s, m); borderCtx.lineTo(w-m, m+s); borderCtx.fill();
-                // Bottom Right
                 borderCtx.beginPath(); borderCtx.moveTo(w-m, h-m); borderCtx.lineTo(w-m-s, h-m); borderCtx.lineTo(w-m, h-m-s); borderCtx.fill();
-                // Bottom Left
                 borderCtx.beginPath(); borderCtx.moveTo(m, h-m); borderCtx.lineTo(m+s, h-m); borderCtx.lineTo(m, h-m-s); borderCtx.fill();
             }
             else if (type === 'baroque') {
-                borderCtx.strokeStyle = '#333';
-                borderCtx.lineWidth = 3;
-                
-                // Moldura dupla com cantos arredondados
-                roundedRect(borderCtx, m, m, w-m*2, h-m*2, 20);
-                borderCtx.stroke();
-                
-                roundedRect(borderCtx, m+5, m+5, w-m*2-10, h-m*2-10, 15);
-                borderCtx.stroke();
-
-                // Decoração simples de canto (círculos)
+                borderCtx.strokeStyle = '#333'; borderCtx.lineWidth = 3;
+                roundedRect(borderCtx, m, m, w-m*2, h-m*2, 20); borderCtx.stroke();
+                roundedRect(borderCtx, m+5, m+5, w-m*2-10, h-m*2-10, 15); borderCtx.stroke();
                 borderCtx.fillStyle = '#333';
-                const corners = [[m+5, m+5], [w-m-5, m+5], [w-m-5, h-m-5], [m+5, h-m-5]];
-                corners.forEach(([x,y]) => {
+                [[m+5, m+5], [w-m-5, m+5], [w-m-5, h-m-5], [m+5, h-m-5]].forEach(([x,y]) => {
                     borderCtx.beginPath(); borderCtx.arc(x, y, 8, 0, Math.PI*2); borderCtx.fill();
                 });
             }
@@ -403,16 +383,11 @@
 
         function roundedRect(ctx, x, y, width, height, radius) {
             ctx.beginPath();
-            ctx.moveTo(x + radius, y);
-            ctx.lineTo(x + width - radius, y);
-            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-            ctx.lineTo(x + width, y + height - radius);
-            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-            ctx.lineTo(x + radius, y + height);
-            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-            ctx.lineTo(x, y + radius);
-            ctx.quadraticCurveTo(x, y, x + radius, y);
-            ctx.closePath();
+            ctx.moveTo(x + radius, y); ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius); ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height); ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius); ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y); ctx.closePath();
         }
 
         // --- INTERACTION ---
@@ -431,10 +406,8 @@
                 if (state.imageObject) {
                     const obj = state.imageObject;
                     if (pos.x >= obj.x && pos.x <= obj.x + obj.width && pos.y >= obj.y && pos.y <= obj.y + obj.height) {
-                        obj.isSelected = true;
-                        state.drag.active = true;
-                        state.drag.startX = pos.x - obj.x;
-                        state.drag.startY = pos.y - obj.y;
+                        obj.isSelected = true; state.drag.active = true;
+                        state.drag.startX = pos.x - obj.x; state.drag.startY = pos.y - obj.y;
                         EL.canvas.style.cursor = 'grabbing';
                         renderMain();
                         return;
@@ -482,13 +455,10 @@
                 drawCtx.arc(x, y, EL.brushSize.value / 2, 0, Math.PI * 2);
                 drawCtx.fill();
             } else {
-                drawCtx.lineCap = 'round'; drawCtx.lineJoin = 'round';
-                drawCtx.lineWidth = EL.brushSize.value;
+                drawCtx.lineCap = 'round'; drawCtx.lineJoin = 'round'; drawCtx.lineWidth = EL.brushSize.value;
                 drawCtx.globalCompositeOperation = state.tool === 'eraser' ? 'destination-out' : 'source-over';
                 drawCtx.strokeStyle = state.tool === 'eraser' ? 'rgba(0,0,0,1)' : EL.colorPicker.value;
-                drawCtx.moveTo(state.lastX, state.lastY);
-                drawCtx.lineTo(x, y);
-                drawCtx.stroke();
+                drawCtx.moveTo(state.lastX, state.lastY); drawCtx.lineTo(x, y); drawCtx.stroke();
             }
             drawCtx.globalCompositeOperation = 'source-over';
             renderMain();
@@ -503,10 +473,8 @@
                 e.preventDefault();
                 const scale = e.deltaY > 0 ? 0.9 : 1.1;
                 const obj = state.imageObject;
-                const newW = obj.width * scale;
-                const newH = obj.height * scale;
-                obj.x += (obj.width - newW) / 2;
-                obj.y += (obj.height - newH) / 2;
+                const newW = obj.width * scale; const newH = obj.height * scale;
+                obj.x += (obj.width - newW) / 2; obj.y += (obj.height - newH) / 2;
                 obj.width = newW; obj.height = newH;
                 renderMain();
             }
@@ -531,21 +499,10 @@
         // FUNÇÃO DE LIMPEZA INTELIGENTE
         const clearProject = () => {
              if(confirm('Deseja limpar todo o trabalho (Canvas e Aplicação 3D)?')) {
-                // 1. Limpa Estado 2D
                 state.imageObject = null;
                 drawCtx.clearRect(0, 0, EL.canvas.width, EL.canvas.height);
                 borderCtx.clearRect(0, 0, EL.canvas.width, EL.canvas.height);
                 renderMain();
-
-                // 2. Limpa Aplicação 3D (Reseta para branco)
-                if(printMesh) {
-                    const tex = new THREE.CanvasTexture(EL.canvas);
-                    printMesh.material.map = tex;
-                    printMesh.material.map.needsUpdate = true;
-                    printMesh.material.needsUpdate = true;
-                }
-
-                // 3. Salva Histórico (Permite Undo)
                 saveToHistory();
             }
         };
@@ -585,35 +542,44 @@
         let preFilterSnapshot = null;
         document.getElementById('btnFilters').addEventListener('click', () => {
             EL.filterPanel.style.display = 'block';
-            preFilterSnapshot = EL.canvas.toDataURL();
+            preFilterSnapshot = exportCanvas.toDataURL(); // Tira snapshot do canvas limpo
         });
 
         const updateFilter = () => {
             if(!preFilterSnapshot) return;
             const img = new Image();
             img.onload = () => {
-                ctx.clearRect(0,0,EL.canvas.width, EL.canvas.height);
-                ctx.save();
+                exportCtx.clearRect(0,0,exportCanvas.width, exportCanvas.height);
+                exportCtx.save();
                 
                 const blur = document.getElementById('filterBlur').value;
                 const mode = document.getElementById('filterMode').value;
                 let filterStr = `blur(${blur}px)`;
                 if(mode !== 'normal') filterStr += ` ${mode === 'grayscale' ? 'grayscale' : mode}(100%)`;
-                ctx.filter = filterStr;
-                ctx.drawImage(img, 0, 0);
-                ctx.restore();
+                exportCtx.filter = filterStr;
+                exportCtx.drawImage(img, 0, 0);
+                exportCtx.restore();
 
                 const r = document.getElementById('channelR').value / 100;
                 const g = document.getElementById('channelG').value / 100;
                 const b = document.getElementById('channelB').value / 100;
                 
                 if(r !== 1 || g !== 1 || b !== 1) {
-                    const idata = ctx.getImageData(0,0,EL.canvas.width, EL.canvas.height);
+                    const idata = exportCtx.getImageData(0,0,exportCanvas.width, exportCanvas.height);
                     for(let i=0; i<idata.data.length; i+=4) {
                         idata.data[i] *= r; idata.data[i+1] *= g; idata.data[i+2] *= b;
                     }
-                    ctx.putImageData(idata, 0, 0);
+                    exportCtx.putImageData(idata, 0, 0);
                 }
+
+                // Atualiza 3D em tempo real enquanto arrasta os filtros
+                if (window.printMesh && window.printMesh.material.map) {
+                    window.printMesh.material.map.needsUpdate = true;
+                }
+
+                // Atualiza a tela
+                ctx.clearRect(0,0,EL.canvas.width, EL.canvas.height);
+                ctx.drawImage(exportCanvas, 0, 0);
             };
             img.src = preFilterSnapshot;
         };
@@ -624,14 +590,13 @@
             const finalImg = new Image();
             finalImg.onload = () => {
                 drawCtx.clearRect(0,0,EL.canvas.width, EL.canvas.height);
+                borderCtx.clearRect(0,0,EL.canvas.width, EL.canvas.height); // Filtro funde as bordas tbm
                 drawCtx.drawImage(finalImg, 0, 0);
                 state.imageObject = null;
-                // Nota: Filtro mescla borda também se aplicado.
-                // Idealmente refazer renderMain, mas filtro é destrutivo nesta versão.
                 renderMain();
                 saveToHistory();
             }
-            finalImg.src = EL.canvas.toDataURL();
+            finalImg.src = exportCanvas.toDataURL();
             EL.filterPanel.style.display = 'none';
             preFilterSnapshot = null;
         });
@@ -642,8 +607,7 @@
             renderMain();
         });
 
-        // --- 3D ---
-        let scene, camera, renderer, printMesh;
+        // --- 3D SETUP ---
         function init3D() {
             const container = EL.rendererContainer;
             scene = new THREE.Scene(); scene.background = new THREE.Color(0xe0e0e0);
@@ -664,10 +628,13 @@
             handle.rotation.z = -Math.PI/2; handle.position.set(0.8, 0, 0); group.add(handle);
 
             const printGeo = new THREE.CylinderGeometry(0.805, 0.805, 1.6, 64, 1, true, Math.PI - (2*Math.PI*0.85/2), 2*Math.PI*0.85);
-            const printMat = new THREE.MeshStandardMaterial({transparent: true, side: THREE.DoubleSide});
-            printMesh = new THREE.Mesh(printGeo, printMat);
-            printMesh.rotation.y = Math.PI / 2;
-            group.add(printMesh);
+            
+            // Textura aponta para o canvas de exportação (limpo)
+            const tex = new THREE.CanvasTexture(exportCanvas);
+            const printMat = new THREE.MeshStandardMaterial({map: tex, transparent: true, side: THREE.DoubleSide});
+            window.printMesh = new THREE.Mesh(printGeo, printMat);
+            window.printMesh.rotation.y = Math.PI / 2;
+            group.add(window.printMesh);
             scene.add(group);
 
             let dragging = false, lastX = 0;
@@ -688,22 +655,10 @@
                 camera.updateProjectionMatrix();
                 renderer.setSize(container.clientWidth, container.clientHeight);
             });
+            
+            renderMain(); // Garante o render inicial na caneca
         }
         init3D();
-
-        document.getElementById('btnApply').onclick = () => {
-            const wasSelected = state.imageObject ? state.imageObject.isSelected : false;
-            if (state.imageObject) state.imageObject.isSelected = false;
-            renderMain();
-            
-            const tex = new THREE.CanvasTexture(EL.canvas);
-            printMesh.material.map = tex;
-            printMesh.material.map.needsUpdate = true;
-            printMesh.material.needsUpdate = true;
-            
-            if (state.imageObject) state.imageObject.isSelected = wasSelected;
-            renderMain();
-        };
 
         // --- EXPORT ---
         function convertPdfToBase64(pdf) {
@@ -726,14 +681,12 @@
             EL.loadingOverlay.style.display = 'flex';
             EL.loadingText.innerText = "Gerando PDF...";
 
-            const wasSelected = state.imageObject?.isSelected;
-            if(state.imageObject) state.imageObject.isSelected = false;
-            renderMain();
-
             try {
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [210, 99] });
-                const imgData = EL.canvas.toDataURL("image/jpeg", 0.95);
+                
+                // Exporta a partir do canvas de Exportação (sem caixa azul)
+                const imgData = exportCanvas.toDataURL("image/jpeg", 0.95);
                 pdf.addImage(imgData, 'JPEG', 0, 0, 210, 99);
                 
                 const pdfBase64 = convertPdfToBase64(pdf);
@@ -768,13 +721,8 @@
                 if(confirm("Erro de conexão.\nDeseja baixar o PDF manualmente?")) {
                     const { jsPDF } = window.jspdf;
                     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [210, 99] });
-                    pdf.addImage(EL.canvas.toDataURL(), 'JPEG', 0, 0, 210, 99);
+                    pdf.addImage(exportCanvas.toDataURL(), 'JPEG', 0, 0, 210, 99);
                     pdf.save(`${Date.now()}_manual.pdf`);
-                }
-            } finally {
-                if(state.imageObject && wasSelected) {
-                    state.imageObject.isSelected = true;
-                    renderMain();
                 }
             }
         };
